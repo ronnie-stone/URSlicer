@@ -1,33 +1,73 @@
-# Copyright (c) 2021 PickNik, Inc.
-#
-# Redistribution and use in source and binary forms, with or without
-# modification, are permitted provided that the following conditions are met:
-#
-#    * Redistributions of source code must retain the above copyright
-#      notice, this list of conditions and the following disclaimer.
-#
-#    * Redistributions in binary form must reproduce the above copyright
-#      notice, this list of conditions and the following disclaimer in the
-#      documentation and/or other materials provided with the distribution.
-#
-#    * Neither the name of the {copyright_holder} nor the names of its
-#      contributors may be used to endorse or promote products derived from
-#      this software without specific prior written permission.
-#
-# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-# AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
-# ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
-# LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
-# CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
-# SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
-# INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
-# CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
-# ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-# POSSIBILITY OF SUCH DAMAGE.
+from ament_index_python.packages import get_package_share_directory
+import os.path
 
-#
-# Author: Denis Stogl
+from launch import LaunchDescription
+from launch.actions import (
+    DeclareLaunchArgument,
+    IncludeLaunchDescription,
+    OpaqueFunction,
+)
+from launch.conditions import IfCondition, UnlessCondition
+from launch.launch_description_sources import AnyLaunchDescriptionSource
+from launch.substitutions import (
+    AndSubstitution,
+    LaunchConfiguration,
+    NotSubstitution,
+    PathJoinSubstitution,
+)
+from launch_ros.actions import Node
+from launch_ros.parameter_descriptions import ParameterFile
+from launch_ros.substitutions import FindPackageShare
+
+def generate_launch_description():
+    # Define arguments for the launch file
+    ur_type = LaunchConfiguration('ur_type', default='ur5')
+    robot_ip = LaunchConfiguration('robot_ip', default='127.0.0.1')  # Not used with mock hardware
+    use_fake_hardware = LaunchConfiguration('use_fake_hardware', default='true')
+    launch_rviz = LaunchConfiguration('launch_rviz', default='true')
+    rviz_config_file = LaunchConfiguration('rviz_config_file', default='config_file.rviz')
+
+    # Path to the RViz configuration file
+    rviz_config_path = os.path.join(get_package_share_directory('slicer_panel'), 'config', rviz_config_file)
+
+    # Launch nodes
+    return LaunchDescription([
+        # Start the UR5 robot with mock hardware
+        Node(
+            package='ur_robot_driver',
+            executable='ur_control_node',
+            name='ur_control_node',
+            parameters=[
+                {'robot_ip': robot_ip},
+                {'use_fake_hardware': use_fake_hardware},
+                {'ur_type': ur_type},
+            ],
+            condition=IfCondition(use_fake_hardware),
+        ),
+
+            control_node = Node(
+        package="controller_manager",
+        executable="ros2_control_node",
+        parameters=[
+            LaunchConfiguration("update_rate_config_file"),
+            ParameterFile(controllers_file, allow_substs=True),
+            # We use the tf_prefix as substitution in there, so that's why we keep it as an
+            # argument for this launchfile
+        ],
+        output="screen",
+    )
+        
+        # Start RViz2 with the specified configuration file
+        Node(
+            package='rviz2',
+            executable='rviz2',
+            name='rviz2',
+            # arguments=['-d', rviz_config_path],
+            condition=IfCondition(launch_rviz),
+        ),
+    ])
+
+
 
 from launch import LaunchDescription
 from launch.actions import (
@@ -49,23 +89,12 @@ from launch_ros.substitutions import FindPackageShare
 
 
 def launch_setup(context):
-    # Initialize Arguments
-    ur_type = LaunchConfiguration("ur_type")
-    robot_ip = LaunchConfiguration("robot_ip")
-    # General arguments
-    controllers_file = LaunchConfiguration("controllers_file")
-    description_launchfile = LaunchConfiguration("description_launchfile")
-    use_mock_hardware = LaunchConfiguration("use_mock_hardware")
-    controller_spawner_timeout = LaunchConfiguration("controller_spawner_timeout")
-    initial_joint_controller = LaunchConfiguration("initial_joint_controller")
-    activate_joint_controller = LaunchConfiguration("activate_joint_controller")
-    launch_rviz = LaunchConfiguration("launch_rviz")
-    rviz_config_file = LaunchConfiguration("rviz_config_file")
-    headless_mode = LaunchConfiguration("headless_mode")
-    launch_dashboard_client = LaunchConfiguration("launch_dashboard_client")
-    use_tool_communication = LaunchConfiguration("use_tool_communication")
-    tool_device_name = LaunchConfiguration("tool_device_name")
-    tool_tcp_port = LaunchConfiguration("tool_tcp_port")
+    # Define arguments for the launch file
+    ur_type = LaunchConfiguration('ur_type', default='ur5')
+    robot_ip = LaunchConfiguration('robot_ip', default='127.0.0.1')  # Not used with mock hardware
+    use_mock_hardware = LaunchConfiguration('use_mock_hardware', default='true')
+    launch_rviz = LaunchConfiguration('launch_rviz', default='true')
+    rviz_config_file = LaunchConfiguration('rviz_config_file', default='config_file.rviz')
 
     control_node = Node(
         package="controller_manager",
@@ -79,33 +108,6 @@ def launch_setup(context):
         output="screen",
     )
 
-    dashboard_client_node = Node(
-        package="ur_robot_driver",
-        condition=IfCondition(
-            AndSubstitution(launch_dashboard_client, NotSubstitution(use_mock_hardware))
-        ),
-        executable="dashboard_client",
-        name="dashboard_client",
-        output="screen",
-        emulate_tty=True,
-        parameters=[{"robot_ip": robot_ip}],
-    )
-
-    tool_communication_node = Node(
-        package="ur_robot_driver",
-        condition=IfCondition(use_tool_communication),
-        executable="tool_communication.py",
-        name="ur_tool_comm",
-        output="screen",
-        parameters=[
-            {
-                "robot_ip": robot_ip,
-                "tcp_port": tool_tcp_port,
-                "device_name": tool_device_name,
-            }
-        ],
-    )
-
     urscript_interface = Node(
         package="ur_robot_driver",
         executable="urscript_interface",
@@ -114,28 +116,7 @@ def launch_setup(context):
         condition=UnlessCondition(use_mock_hardware),
     )
 
-    controller_stopper_node = Node(
-        package="ur_robot_driver",
-        executable="controller_stopper_node",
-        name="controller_stopper",
-        output="screen",
-        emulate_tty=True,
-        condition=UnlessCondition(use_mock_hardware),
-        parameters=[
-            {"headless_mode": headless_mode},
-            {"joint_controller_active": activate_joint_controller},
-            {
-                "consistent_controllers": [
-                    "io_and_status_controller",
-                    "force_torque_sensor_broadcaster",
-                    "joint_state_broadcaster",
-                    "speed_scaling_state_broadcaster",
-                    "tcp_pose_broadcaster",
-                    "ur_configuration_controller",
-                ]
-            },
-        ],
-    )
+
 
     rviz_node = Node(
         package="rviz2",
@@ -340,8 +321,15 @@ def generate_launch_description():
         )
     )
     declared_arguments.append(
+        DeclareLaunchArgument("launch_rviz", default_value="true", description="Launch RViz?")
+    )
+    declared_arguments.append(
         DeclareLaunchArgument(
-            "launch_rviz", default_value="true", description="Launch RViz?"
+            "rviz_config_file",
+            default_value=PathJoinSubstitution(
+                [FindPackageShare("ur_description"), "rviz", "view_robot.rviz"]
+            ),
+            description="RViz config file (absolute path) to use when launching rviz.",
         )
     )
     declared_arguments.append(
@@ -473,6 +461,4 @@ def generate_launch_description():
             ],
         )
     )
-    return LaunchDescription(
-        declared_arguments + [OpaqueFunction(function=launch_setup)]
-    )
+    return LaunchDescription(declared_arguments + [OpaqueFunction(function=launch_setup)])
