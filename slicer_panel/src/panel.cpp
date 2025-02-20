@@ -170,6 +170,8 @@ void Slicer::createSTLMarker()
 
 void Slicer::deleteSTLMarker()
 {
+  server_->erase("stl_marker");
+  server_->applyChanges();
 }
 
 void Slicer::processSTLFeedback(const visualization_msgs::msg::InteractiveMarkerFeedback::ConstSharedPtr& feedback)
@@ -235,6 +237,7 @@ void Slicer::clearWSClicked()
   export_button_->setEnabled(false);
 
   // Remove interactive marker object to set up creation of new one
+  deleteSTLMarker();
 }
 
 std::shared_ptr<interactive_markers::InteractiveMarkerServer> server_;
