@@ -1,0 +1,9 @@
+<library path="slicer_panel">
+  <class name="slicer_panel/Slicer"
+         type="slicer_panel::Slicer"
+         base_class_type="rviz_common::Panel">
+    <description>
+      A custom panel for RViz to serve as a UI for the UR Slicer project.
+    </description>
+  </class>
+</library>
