@@ -51,7 +51,8 @@ ros2 launch ur_robot_driver ur_control.launch.py ur_type:=ur5e robot_ip:=yyy.yyy
 Optional bed placer:
 
 In another sourced terminal run:
+
 ```
 ros2 run test_nodes bed_corner_tester
-``
+```
 
