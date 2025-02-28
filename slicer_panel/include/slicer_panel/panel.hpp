@@ -5,15 +5,20 @@
 #include <rviz_common/panel.hpp>
 #include <memory>
 #include <interactive_markers/interactive_marker_server.hpp>
+#include <interactive_markers/menu_handler.hpp>
 #include <visualization_msgs/msg/interactive_marker.hpp>
 #include <visualization_msgs/msg/interactive_marker_control.hpp>
 #include <visualization_msgs/msg/marker.hpp>
+#include <visualization_msgs/msg/marker.hpp>
+#include <std_msgs/msg/color_rgba.hpp>
 #include "tf2/LinearMath/Transform.h"
 #include "tf2/LinearMath/Quaternion.h"
 #include "tf2/LinearMath/Vector3.h"
 #include "tf2/transform_datatypes.h"
 #include "tf2_geometry_msgs/tf2_geometry_msgs.hpp"
 #include "tf2_ros/transform_broadcaster.h"
+#include "ur_slicer_interfaces/msg/bed_corners.hpp"
+#include "ur_slicer_interfaces/msg/path.hpp"
 
 #include <QVBoxLayout>
 #include <QHBoxLayout>
@@ -27,15 +32,6 @@
 #include <QDir>
 #include <vector>
 #include <string>
-
-#include <memory>
-#include <rclcpp/rclcpp.hpp>
-#include <interactive_markers/interactive_marker_server.hpp>
-#include <interactive_markers/menu_handler.hpp>
-#include <visualization_msgs/msg/interactive_marker.hpp>
-#include <visualization_msgs/msg/interactive_marker_control.hpp>
-#include <visualization_msgs/msg/marker.hpp>
-#include <std_msgs/msg/color_rgba.hpp>
 
 class QLabel;
 class QComboBox;
@@ -60,7 +56,8 @@ public:
 
 protected Q_SLOTS:
   void spin();
-  void rectangleBedCreation(std::array<geometry_msgs::msg::Point, 4>);
+  void rectangleBedCreation(const ur_slicer_interfaces::msg::BedCorners::SharedPtr msg);
+  void deleteBed();
   void createSTLMarker();
   void deleteSTLMarker();
   void processSTLFeedback(const visualization_msgs::msg::InteractiveMarkerFeedback::ConstSharedPtr& feedback);
@@ -71,7 +68,8 @@ protected Q_SLOTS:
   void clearWSClicked();
 
 private:
-  std::shared_ptr<interactive_markers::InteractiveMarkerServer> server_;
+  std::shared_ptr<interactive_markers::InteractiveMarkerServer> server_;  // Interactive marker server for STL objects
+  rclcpp::Subscription<ur_slicer_interfaces::msg::BedCorners>::SharedPtr bed_subscriber_;  // Subscriber for bed corners
 
   QTimer* spin_timer_;
 
