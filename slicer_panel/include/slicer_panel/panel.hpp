@@ -60,6 +60,7 @@ public:
 
 protected Q_SLOTS:
   void spin();
+  void rectangleBedCreation(std::array<geometry_msgs::msg::Point, 4>);
   void createSTLMarker();
   void deleteSTLMarker();
   void processSTLFeedback(const visualization_msgs::msg::InteractiveMarkerFeedback::ConstSharedPtr& feedback);
