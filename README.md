@@ -47,3 +47,4 @@ ros2 launch ur_robot_driver ur_control.launch.py ur_type:=ur5e robot_ip:=yyy.yyy
 4. In the Interactive Marker display options set the "Interactive Marker Namespace" to /stl_markers.
 
 5. The panel is now usable.
+
