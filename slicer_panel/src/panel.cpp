@@ -60,8 +60,6 @@ Slicer::Slicer(QWidget* parent) : rviz_common::Panel(parent), rclcpp::Node("slic
   panelLayout->addWidget(tabWidget);
   setLayout(panelLayout);
 
-  setFixedSize(400, 475);  // Set fixed size for the panel
-
   connect(file_button_, &QPushButton::clicked, this, &Slicer::selectFileClicked);
   connect(slice_button_, SIGNAL(clicked()), this, SLOT(sliceClicked()));
   connect(visualize_button_, SIGNAL(clicked()), this, SLOT(visualizeClicked()));
@@ -76,12 +74,13 @@ void Slicer::onInitialize()
       "stl_marker", this->get_node_base_interface(), this->get_node_clock_interface(),
       this->get_node_logging_interface(), this->get_node_topics_interface(), this->get_node_services_interface());
 
+  bed_subscriber_ = this->create_subscription<ur_slicer_interfaces::msg::BedCorners>(
+      "/bed_corners", 1, std::bind(&Slicer::rectangleBedCreation, this, std::placeholders::_1));
+
   // Set up timer for spinning the node
   spin_timer_ = new QTimer(this);
   connect(spin_timer_, &QTimer::timeout, this, &Slicer::spin);
   spin_timer_->start(10);  // Spin every 10ms
-
-  bedCreation();
 }
 
 void Slicer::load(const rviz_common::Config& config)
@@ -99,14 +98,17 @@ void Slicer::spin()
   rclcpp::spin_some(this->get_node_base_interface());
 }
 
-void Slicer::rectangleBedCreation(std::array<geometry_msgs::msg::Point, 4> corners)
+// Bed Creation Functions
+
+void Slicer::rectangleBedCreation(const ur_slicer_interfaces::msg::BedCorners::SharedPtr msg)
 {
+  deleteBed();
   geometry_msgs::msg::Point p1, p2, p3, p4;
 
-  p1 = corners[0];
-  p2 = corners[1];
-  p3 = corners[2];
-  p4 = corners[3];
+  p1 = msg->corners[0];
+  p2 = msg->corners[1];
+  p3 = msg->corners[2];
+  p4 = msg->corners[3];
 
   float bed_height = 0.1;  // Arbitrary bed height for visualization
 
@@ -121,7 +123,6 @@ void Slicer::rectangleBedCreation(std::array<geometry_msgs::msg::Point, 4> corne
   int_marker.pose.position = center;
   int_marker.scale = 1.0;
   int_marker.name = "printer_bed";
-  int_marker.description = "3D Printer Bed";
 
   visualization_msgs::msg::InteractiveMarkerControl control;
   control.always_visible = true;
@@ -149,10 +150,17 @@ void Slicer::rectangleBedCreation(std::array<geometry_msgs::msg::Point, 4> corne
   server_->applyChanges();
 }
 
+void Slicer::deleteBed()
+{
+  server_->erase("printer_bed");
+  server_->applyChanges();
+}
+
 // STL Marker Functions
 
 void Slicer::createSTLMarker()
 {
+  deleteSTLMarker();
   visualization_msgs::msg::InteractiveMarker int_marker;
   int_marker.header.frame_id = "base_link";
   int_marker.name = "stl_marker";

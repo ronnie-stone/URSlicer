@@ -17,6 +17,9 @@ find_package(rviz_rendering REQUIRED)
 find_package(rviz_default_plugins REQUIRED)
 find_package(Qt5 REQUIRED COMPONENTS Widgets)
 
+# URSlicer dependencies
+find_package(ur_slicer_interfaces REQUIRED)
+
 set(CMAKE_AUTOMOC ON)
 
 # rviz_ui_panel
@@ -51,6 +54,7 @@ ament_target_dependencies(${PROJECT_NAME}
   rviz_rendering
   rviz_default_plugins
   interactive_markers
+  ur_slicer_interfaces
   tf2
   tf2_geometry_msgs
   tf2_ros

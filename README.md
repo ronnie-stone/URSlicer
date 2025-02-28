@@ -22,7 +22,7 @@ cd to ros_ws
 ensure git repo has been cloned into the correct branch
 ensure that workspace has been sourced
 ```
-colcon build --packages-select slicer_panel
+colcon build --packages-select slicer_panel test_nodes
 ```
 
 After building any packages the following line must be entered while in the ros_ws directory.
@@ -47,4 +47,11 @@ ros2 launch ur_robot_driver ur_control.launch.py ur_type:=ur5e robot_ip:=yyy.yyy
 4. In the Interactive Marker display options set the "Interactive Marker Namespace" to /stl_markers.
 
 5. The panel is now usable.
+
+Optional bed placer:
+
+In another sourced terminal run:
+```
+ros2 run test_nodes bed_corner_tester
+``
 

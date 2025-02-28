@@ -8,9 +8,6 @@
   <license>Apache-2.0</license>
 
   <buildtool_depend>ament_cmake</buildtool_depend>
-  <build_depend>interactive_goal_interfaces</build_depend>
-
-  <exec_depend>interactive_goal_interfaces</exec_depend>
 
   <test_depend>ament_lint_auto</test_depend>
   <test_depend>ament_lint_common</test_depend>
@@ -24,6 +21,8 @@
   <depend>rviz_default_plugins</depend>
   <depend>pluginlib</depend>
   <depend>Qt5</depend>
+
+  <depend>ur_slicer_interfaces</depend>
 
   <export>
     <build_type>ament_cmake</build_type>
