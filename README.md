@@ -22,7 +22,7 @@ cd to ros_ws
 ensure git repo has been cloned into the correct branch
 ensure that workspace has been sourced
 ```
-colcon build --packages-select slicer_panel test_nodes
+colcon build --packages-select ur_slicer_interfaces slicer_panel test_nodes
 ```
 
 After building any packages the following line must be entered while in the ros_ws directory.
