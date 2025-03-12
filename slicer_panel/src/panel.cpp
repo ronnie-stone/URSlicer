@@ -3,6 +3,8 @@
 namespace slicer_panel
 {
 
+  
+
 Slicer::Slicer(QWidget* parent) : rviz_common::Panel(parent), rclcpp::Node("slicer_panel")
 {
   QTabWidget* tabWidget = new QTabWidget(this);
