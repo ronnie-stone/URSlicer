@@ -79,6 +79,19 @@ private:
   QPushButton* visualize_button_;
   QPushButton* export_button_;
   QPushButton* clear_ws_button_;
+
+  QLineEdit* layer_height_input_;
+  QLineEdit* infill_density_input_;
+  QLineEdit* temperature_input_;
+  QComboBox* bed_adhesion_combo_;
+  QComboBox* infill_pattern_combo_;
+  QLineEdit* print_speed_input_;
+
+  void initializeComboBoxes()
+  {
+      bed_adhesion_combo_->addItems({"None", "Skirt", "Brim", "Raft"});
+      infill_pattern_combo_->addItems({"Triangle", "Gyroid", "Cubic"});
+  }
 };
 
 }  // namespace slicer_panel
