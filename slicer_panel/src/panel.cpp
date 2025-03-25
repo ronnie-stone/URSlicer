@@ -23,6 +23,41 @@ Slicer::Slicer(QWidget* parent) : rviz_common::Panel(parent), rclcpp::Node("slic
   path_label_ = new QLabel("No file selected");
   layout->addWidget(path_label_);
   mainLayout->addLayout(layout);
+  
+  // Layer height input
+  layer_height_input_ = new QLineEdit;
+  layer_height_input_->setPlaceholderText("Layer Height (mm)");
+  mainLayout->addWidget(layer_height_input_);
+
+
+  // Infill density input
+  infill_density_input_ = new QLineEdit;
+  infill_density_input_->setPlaceholderText("Infill Density (%)");
+  mainLayout->addWidget(infill_density_input_);
+
+
+  // Temperature settings input
+  temperature_input_ = new QLineEdit;
+  temperature_input_->setPlaceholderText("Temperature (°C)");
+  mainLayout->addWidget(temperature_input_);
+
+
+  // Print bed adhesion dropdown
+  bed_adhesion_combo_ = new QComboBox;
+  bed_adhesion_combo_->addItems({"None", "Brim", "Raft", "Skirt"});
+  mainLayout->addWidget(bed_adhesion_combo_);
+
+
+  // Infill pattern dropdown
+  infill_pattern_combo_ = new QComboBox;
+  infill_pattern_combo_->addItems({"Grid", "Honeycomb", "Lines", "Cubic"});
+  mainLayout->addWidget(infill_pattern_combo_);
+
+
+  // Print speed input
+  print_speed_input_ = new QLineEdit;
+  print_speed_input_->setPlaceholderText("Print Speed (mm/s)");
+  mainLayout->addWidget(print_speed_input_);
 
   // Spacer to push buttons to the bottom
 
