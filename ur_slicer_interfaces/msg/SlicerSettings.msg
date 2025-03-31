@@ -1,0 +1,4 @@
+int32 nozzle_temperature
+float32 layer_height
+float32 print_speed
+int32 infill_density
