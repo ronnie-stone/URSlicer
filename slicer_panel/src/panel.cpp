@@ -1,9 +1,9 @@
 #include "slicer_panel/panel.hpp"
+#include <QMessageBox>
+#include <QDoubleValidator>
 
 namespace slicer_panel
 {
-
-  
 
 Slicer::Slicer(QWidget* parent) : rviz_common::Panel(parent), rclcpp::Node("slicer_panel")
 {
@@ -13,10 +13,6 @@ Slicer::Slicer(QWidget* parent) : rviz_common::Panel(parent), rclcpp::Node("slic
   QWidget* slicingWidget = new QWidget();
   QVBoxLayout* mainLayout = new QVBoxLayout;
 
-  QVBoxLayout* dynamicContentLayout = new QVBoxLayout;
-  dynamicContentLayout->setSpacing(10);  // Set spacing between dynamic boxes
-
-  // File selection
   QHBoxLayout* layout = new QHBoxLayout;
   file_button_ = new QPushButton("Select File");
   layout->addWidget(file_button_);
@@ -47,22 +43,34 @@ Slicer::Slicer(QWidget* parent) : rviz_common::Panel(parent), rclcpp::Node("slic
   QWidget* settingsTabWidget = new QWidget();
   QVBoxLayout* advancedLayout = new QVBoxLayout;
 
+  // Validators
+  QDoubleValidator* decimalValidator = new QDoubleValidator(0.0, 1000.0, 2, this);
+  decimalValidator->setNotation(QDoubleValidator::StandardNotation);
+
+  QIntValidator* intValidator = new QIntValidator(0, 100, this);
+
   // Layer Height
   layer_height_label_ = new QLabel("Layer Height (mm)");
   advancedLayout->addWidget(layer_height_label_);
   layer_height_input_ = new QLineEdit();
+  layer_height_input_->setValidator(decimalValidator);
+  connect(layer_height_input_, &QLineEdit::editingFinished, this, &Slicer::validateNumericInput);
   advancedLayout->addWidget(layer_height_input_);
 
   // Infill Density
   infill_density_label_ = new QLabel("Infill Density (%)");
   advancedLayout->addWidget(infill_density_label_);
   infill_density_input_ = new QLineEdit();
+  infill_density_input_->setValidator(intValidator);
+  connect(infill_density_input_, &QLineEdit::editingFinished, this, &Slicer::validateNumericInput);
   advancedLayout->addWidget(infill_density_input_);
 
   // Temperature
   temperature_label_ = new QLabel("Temperature (°C)");
   advancedLayout->addWidget(temperature_label_);
   temperature_input_ = new QLineEdit();
+  temperature_input_->setValidator(intValidator);
+  connect(temperature_input_, &QLineEdit::editingFinished, this, &Slicer::validateNumericInput);
   advancedLayout->addWidget(temperature_input_);
 
   // Print Bed Adhesion
@@ -83,6 +91,8 @@ Slicer::Slicer(QWidget* parent) : rviz_common::Panel(parent), rclcpp::Node("slic
   print_speed_label_ = new QLabel("Print Speed (mm/s)");
   advancedLayout->addWidget(print_speed_label_);
   print_speed_input_ = new QLineEdit();
+  print_speed_input_->setValidator(decimalValidator);
+  connect(print_speed_input_, &QLineEdit::editingFinished, this, &Slicer::validateNumericInput);
   advancedLayout->addWidget(print_speed_input_);
 
   settingsTabWidget->setLayout(advancedLayout);

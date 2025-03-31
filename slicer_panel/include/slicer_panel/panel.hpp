@@ -71,8 +71,6 @@ private:
   std::shared_ptr<interactive_markers::InteractiveMarkerServer> server_;  // Interactive marker server for STL objects
   rclcpp::Subscription<ur_slicer_interfaces::msg::BedCorners>::SharedPtr bed_subscriber_;  // Subscriber for bed corners
 
-  QTimer* spin_timer_;
-
   QPushButton* file_button_;
   QLabel* path_label_;
   QPushButton* slice_button_;
@@ -80,19 +78,24 @@ private:
   QPushButton* export_button_;
   QPushButton* clear_ws_button_;
 
-  QLineEdit* layer_height_input_;
-  QLineEdit* infill_density_input_;
-  QLineEdit* temperature_input_;
-  QComboBox* bed_adhesion_combo_;
-  QComboBox* infill_pattern_combo_;
-  QLineEdit* print_speed_input_;
-
+  // Settings Widgets
   QLabel* layer_height_label_;
+  QLineEdit* layer_height_input_;
+
   QLabel* infill_density_label_;
+  QLineEdit* infill_density_input_;
+
   QLabel* temperature_label_;
+  QLineEdit* temperature_input_;
+
   QLabel* bed_adhesion_label_;
+  QComboBox* bed_adhesion_combo_;
+
   QLabel* infill_pattern_label_;
+  QComboBox* infill_pattern_combo_;
+
   QLabel* print_speed_label_;
+  QLineEdit* print_speed_input_;
 
 
   void initializeComboBoxes()
