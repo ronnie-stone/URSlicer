@@ -1,39 +1,43 @@
 import rclpy
 from rclpy.node import Node
-from std_msgs.msg import Bool
-from sensor_msgs.msg import JointState
-# Import the custom slicer command message; make sure it is defined in your package.
+from std_msgs.msg import Bool, Float64
+from sensor_msgs.msg import JointState, Temperature
 from ur_slicer_interfaces.msg import SlicerCommand  
 
-class UR5eExtruderHeatingInterface(Node):
-    """Node that sends DO commands based on slicer commands and robot motion.
-
+class URExtruderInterface(Node):
+    """Node that sends DO commands based on slicer commands and robot motion,
+    and also processes an analog input to measure the hotend temperature.
+    
     It publishes:
       - A command to /ur_hardware_interface/tool_digital_output_extruder to turn on the filament extruder driver.
       - A command to /ur_hardware_interface/tool_digital_output_heating to instruct the Arduino to monitor the heating element.
+      - The hotend temperature as a sensor_msgs/Temperature message on /hotend_temperature.
     """
 
     def __init__(self):
-        super().__init__('ur5e_extruder_heating_interface')
+        super().__init__('ur5e_extruder_interface')
 
+        #-----------------Publishers-------------------
         # Publisher for the extruder DO command.
-        self.extruder_dout_pub = self.create_publisher(
-            Bool, '/ur_hardware_interface/tool_digital_output_extruder', 1
-        )
+        self.extruder_dout_pub = self.create_publisher(Bool, '/ur_hardware_interface/tool_digital_output_extruder', 1)
+        
         # Publisher for the heating element monitoring DO command.
-        self.heating_dout_pub = self.create_publisher(
-            Bool, '/ur_hardware_interface/tool_digital_output_heating', 1
-        )
+        self.heating_dout_pub = self.create_publisher(Bool, '/ur_hardware_interface/tool_digital_output_heating', 1)
+        
+        # Publisher for hotend temperature.
+        self.temperature_pub = self.create_publisher(Temperature, '/hotend_temperature', 1)
 
+        #------------------Subscribers--------------------
         # Subscription for slicer commands using a custom message.
-        self.create_subscription(
-            SlicerCommand, '/slicer/command', self.slicer_command_callback, 1
-        )
+        self.create_subscription(SlicerCommand, '/slicer/command', self.slicer_command_callback, 1)
 
         # Subscription for joint states to determine if the robot is moving.
-        self.create_subscription(
-            JointState, '/joint_states', self.joint_state_callback, 1
-        )
+        self.create_subscription(JointState, '/joint_states', self.joint_state_callback, 1)
+
+        # Subscription for the analog input signal from the UR toolhead.
+
+        # Assumes a Float64 message representing the voltage reading.
+        self.create_subscription(Float64, '/ur_hardware_interface/tool_analog_input', self.analog_input_callback, 1)
 
         # Timer to periodically check conditions and publish DO commands.
         self.timer = self.create_timer(0.1, self.timer_callback)
@@ -71,6 +75,26 @@ class UR5eExtruderHeatingInterface(Node):
         self.robot_in_motion = any(abs(vel) > self.motion_threshold for vel in msg.velocity)
         self.get_logger().debug(f"Robot in motion: {self.robot_in_motion}")
 
+    def analog_input_callback(self, msg: Float64):
+        """
+        Callback to process the analog input from the UR toolhead.
+        Converts the voltage reading to a temperature value and publishes it.
+        
+        In this example, we assume 0–10 V corresponds to 0–100°C.
+        Adjust the conversion as per your sensor's calibration.
+        """
+        voltage = msg.data
+        # Convert the analog voltage to temperature in Celsius.
+        temperature_c = (voltage / 10.0) * 300.0 # 0-10v corresponds to the range given by the thermistor being used. Adjustment may be needed
+
+        temp_msg = Temperature()
+        temp_msg.header.stamp = self.get_clock().now().to_msg()
+        temp_msg.temperature = temperature_c
+        temp_msg.variance = 0.0  # Adjust if you have a variance value.
+
+        self.temperature_pub.publish(temp_msg)
+        self.get_logger().info(f"Published hotend temperature: {temperature_c:.2f} °C")
+
     def timer_callback(self):
         """
         Timer callback that evaluates the conditions and publishes:
@@ -97,7 +121,7 @@ class UR5eExtruderHeatingInterface(Node):
 
 def main(args=None):
     rclpy.init(args=args)
-    node = UR5eExtruderHeatingInterface()
+    node = URExtruderInterface()  # Ensure class name matches.
     try:
         rclpy.spin(node)
     except KeyboardInterrupt:
