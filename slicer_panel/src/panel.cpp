@@ -24,55 +24,7 @@ Slicer::Slicer(QWidget* parent) : rviz_common::Panel(parent), rclcpp::Node("slic
   layout->addWidget(path_label_);
   mainLayout->addLayout(layout);
 
-  // Slicing Settings Tab
-  QWidget* settingsTabWidget = new QWidget();
-  QVBoxLayout* advancedLayout = new QVBoxLayout;
-  
-  layer_height_label_ = new QLabel("Layer Height (mm)");
-  advancedLayout->addWidget(layer_height_label_);
-  layer_height_input_ = new QLineEdit();
-  advancedLayout->addWidget(layer_height_input_);
-  
-  // Infill Density
-  infill_density_label_ = new QLabel("Infill Density (%)");
-  advancedLayout->addWidget(infill_density_label_);
-  infill_density_input_ = new QLineEdit();
-  advancedLayout->addWidget(infill_density_input_);
-  
-  // Temperature
-  temperature_label_ = new QLabel("Temperature (°C)");
-  advancedLayout->addWidget(temperature_label_);
-  temperature_input_ = new QLineEdit();
-  advancedLayout->addWidget(temperature_input_);
-  
-  // Print Bed Adhesion
-  bed_adhesion_label_ = new QLabel("Print Bed Adhesion");
-  advancedLayout->addWidget(bed_adhesion_label_);
-  bed_adhesion_combo_ = new QComboBox();
-  bed_adhesion_combo_->addItems({"None", "Skirt", "Brim", "Raft"});
-  advancedLayout->addWidget(bed_adhesion_combo_);
-  
-  // Infill Pattern
-  infill_pattern_label_ = new QLabel("Infill Pattern");
-  advancedLayout->addWidget(infill_pattern_label_);
-  infill_pattern_combo_ = new QComboBox();
-  infill_pattern_combo_->addItems({"Triangle", "Gyroid", "Cubic"});
-  advancedLayout->addWidget(infill_pattern_combo_);
-  
-  // Print Speed
-  print_speed_label_ = new QLabel("Print Speed (mm/s)");
-  advancedLayout->addWidget(print_speed_label_);
-  print_speed_input_ = new QLineEdit();
-  advancedLayout->addWidget(print_speed_input_);
-  
-  settingsTabWidget->setLayout(advancedLayout);
-  tabWidget->addTab(settingsTabWidget, "Settings");
-
-  // Spacer to push buttons to the bottom
-
   mainLayout->addStretch();
-
-  // Slice, Visualize, Export, Clear Buttons
 
   QVBoxLayout* buttonLayout = new QVBoxLayout;
   slice_button_ = new QPushButton("Slice");
@@ -89,16 +41,51 @@ Slicer::Slicer(QWidget* parent) : rviz_common::Panel(parent), rclcpp::Node("slic
   clear_ws_button_->setEnabled(true);
 
   mainLayout->addLayout(buttonLayout);
-
   slicingWidget->setLayout(mainLayout);
 
   // Slicing Settings Tab
-
   QWidget* settingsTabWidget = new QWidget();
   QVBoxLayout* advancedLayout = new QVBoxLayout;
 
-  settingsTabWidget->setLayout(advancedLayout);
+  // Layer Height
+  layer_height_label_ = new QLabel("Layer Height (mm)");
+  advancedLayout->addWidget(layer_height_label_);
+  layer_height_input_ = new QLineEdit();
+  advancedLayout->addWidget(layer_height_input_);
 
+  // Infill Density
+  infill_density_label_ = new QLabel("Infill Density (%)");
+  advancedLayout->addWidget(infill_density_label_);
+  infill_density_input_ = new QLineEdit();
+  advancedLayout->addWidget(infill_density_input_);
+
+  // Temperature
+  temperature_label_ = new QLabel("Temperature (°C)");
+  advancedLayout->addWidget(temperature_label_);
+  temperature_input_ = new QLineEdit();
+  advancedLayout->addWidget(temperature_input_);
+
+  // Print Bed Adhesion
+  bed_adhesion_label_ = new QLabel("Print Bed Adhesion");
+  advancedLayout->addWidget(bed_adhesion_label_);
+  bed_adhesion_combo_ = new QComboBox();
+  bed_adhesion_combo_->addItems({"None", "Skirt", "Brim", "Raft"});
+  advancedLayout->addWidget(bed_adhesion_combo_);
+
+  // Infill Pattern
+  infill_pattern_label_ = new QLabel("Infill Pattern");
+  advancedLayout->addWidget(infill_pattern_label_);
+  infill_pattern_combo_ = new QComboBox();
+  infill_pattern_combo_->addItems({"Triangle", "Gyroid", "Cubic"});
+  advancedLayout->addWidget(infill_pattern_combo_);
+
+  // Print Speed
+  print_speed_label_ = new QLabel("Print Speed (mm/s)");
+  advancedLayout->addWidget(print_speed_label_);
+  print_speed_input_ = new QLineEdit();
+  advancedLayout->addWidget(print_speed_input_);
+
+  settingsTabWidget->setLayout(advancedLayout);
   tabWidget->addTab(slicingWidget, "Slicing");
   tabWidget->addTab(settingsTabWidget, "Settings");
 
