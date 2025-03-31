@@ -1,6 +1,9 @@
 #ifndef RVIZ_UI_PANEL_PANEL_HPP_
 #define RVIZ_UI_PANEL_PANEL_HPP_
 
+#ifndef SLICER_PANEL_HPP
+#define SLICER_PANEL_HPP
+
 #include <rclcpp/rclcpp.hpp>
 #include <rviz_common/panel.hpp>
 #include <memory>
@@ -66,6 +69,7 @@ protected Q_SLOTS:
   void visualizeClicked();
   void exportClicked();
   void clearWSClicked();
+  void validateNumericInput(); 
 
 private:
   std::shared_ptr<interactive_markers::InteractiveMarkerServer> server_;  // Interactive marker server for STL objects
@@ -96,6 +100,8 @@ private:
 
   QLabel* print_speed_label_;
   QLineEdit* print_speed_input_;
+
+  QTimer* spin_timer_;
 
 
   void initializeComboBoxes()
