@@ -87,6 +87,14 @@ private:
   QComboBox* infill_pattern_combo_;
   QLineEdit* print_speed_input_;
 
+  QLabel* layer_height_label_;
+  QLabel* infill_density_label_;
+  QLabel* temperature_label_;
+  QLabel* bed_adhesion_label_;
+  QLabel* infill_pattern_label_;
+  QLabel* print_speed_label_;
+
+
   void initializeComboBoxes()
   {
       bed_adhesion_combo_->addItems({"None", "Skirt", "Brim", "Raft"});
