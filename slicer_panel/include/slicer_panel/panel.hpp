@@ -114,3 +114,4 @@ private:
 }  // namespace slicer_panel
 
 #endif  // RVIZ_UI_PANEL_PANEL_HPP_
+#endif  // SLICER_PANEL_HPP
