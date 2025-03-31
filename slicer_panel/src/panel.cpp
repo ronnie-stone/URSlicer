@@ -25,6 +25,7 @@ Slicer::Slicer(QWidget* parent) : rviz_common::Panel(parent), rclcpp::Node("slic
   mainLayout->addLayout(layout);
   
   // Layer height input
+  layer_height_label_ = new QLabel("Layer Height (mm)");
   layer_height_input_ = new QLineEdit;
   layer_height_input_->setPlaceholderText("Layer Height (mm)");
   mainLayout->addWidget(layer_height_input_);
