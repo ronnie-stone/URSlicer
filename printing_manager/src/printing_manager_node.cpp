@@ -8,6 +8,10 @@
 #include <rclcpp/rclcpp.hpp>
 #include <rclcpp_action/rclcpp_action.hpp>
 #include <moveit/move_group_interface/move_group_interface.h>
+#include <moveit/robot_trajectory/robot_trajectory.h>
+#include <moveit/trajectory_processing/time_optimal_trajectory_generation.h>
+#include <moveit/robot_model_loader/robot_model_loader.h>
+#include <moveit/planning_scene_interface/planning_scene_interface.h>
 #include <geometry_msgs/msg/pose.hpp>
 #include <std_msgs/msg/bool.hpp>
 
@@ -24,49 +28,17 @@ using namespace std::chrono_literals;
 class PrinterManager : public rclcpp::Node
 {
 public:
-  PrinterManager()
-    : Node("ur5e_manager_node",
-           rclcpp::NodeOptions().automatically_declare_parameters_from_overrides(true).parameter_overrides(
-               { { "use_sim_time", true } }))
+  PrinterManager(const std::string& node_name, const rclcpp::NodeOptions& options) : Node(node_name, options)
   {
-    // Initialize MoveIt interface
-    RCLCPP_INFO(get_logger(), "Initializing MoveIt interface...");
-
-    // Initialize MoveIt
-    // auto const moveit_node = std::make_shared<rclcpp::Node>(
-    //     "ur5e_moveit_node",
-    //     rclcpp::NodeOptions().automatically_declare_parameters_from_overrides(true).parameter_overrides(
-    //         { { "use_sim_time", true } }));
-
-    // auto move_group_ = moveit::planning_interface::MoveGroupInterface(moveit_node, "ur_manipulator");
-
-    move_group_ = std::make_shared<moveit::planning_interface::MoveGroupInterface>(shared_from_this(),  // Use current
-                                                                                                        // node context
-                                                                                   "ur_manipulator");
-
-    RCLCPP_INFO(get_logger(), "MoveIt interface initialized.");
-
-    configure_moveit();
     initialize_communications();
   }
 
 private:
-  void configure_moveit()
-  {
-    RCLCPP_INFO(get_logger(), "Configuring MoveIt...");
-    move_group_->setPlanningTime(10.0);
-    move_group_->setMaxVelocityScalingFactor(0.1);
-    move_group_->setMaxAccelerationScalingFactor(0.1);
-    move_group_->setPoseReferenceFrame("base_link");
-
-    RCLCPP_INFO(get_logger(), "Planning frame: %s", move_group_->getPlanningFrame().c_str());
-    RCLCPP_INFO(get_logger(), "End effector link: %s", move_group_->getEndEffectorLink().c_str());
-  }
-
   void initialize_communications()
   {
     RCLCPP_INFO(get_logger(), "Initializing communications...");
     using namespace std::placeholders;
+
     // Action server for printer preparation
     printer_server_ = rclcpp_action::create_server<ur_slicer_interfaces::action::PreparePrinter>(
         this, "ur_printer", std::bind(&PrinterManager::handle_goal, this, _1, _2),
@@ -77,28 +49,28 @@ private:
     // Action client for slicing
     slicer_client_ = rclcpp_action::create_client<ur_slicer_interfaces::action::Slicer>(this, "slicer_action");
     // Wait for the action server to be available
-    // while (!slicer_client_->wait_for_action_server(std::chrono::seconds(1)))
-    // {
-    //   RCLCPP_INFO(get_logger(), "Waiting for slicer action server...");
-    // }
+    while (!slicer_client_->wait_for_action_server(std::chrono::seconds(1)))
+    {
+      RCLCPP_INFO(get_logger(), "Waiting for slicer action server...");
+    }
     RCLCPP_INFO(get_logger(), "Slicer action server is available.");
 
     // Service client for extruder control
     extruder_client_ = create_client<ur_slicer_interfaces::srv::ExtruderControl>("extruder_control");
     // Wait for the service to be available
-    // while (!extruder_client_->wait_for_service(std::chrono::seconds(1)))
-    // {
-    //   RCLCPP_INFO(get_logger(), "Waiting for extruder control service...");
-    // }
+    while (!extruder_client_->wait_for_service(std::chrono::seconds(1)))
+    {
+      RCLCPP_INFO(get_logger(), "Waiting for extruder control service...");
+    }
     RCLCPP_INFO(get_logger(), "Extruder control service is available.");
 
     // Service client for heater control
     heater_client_ = create_client<ur_slicer_interfaces::srv::HeaterControl>("heater_control");
     // Wait for the service to be available
-    // while (!heater_client_->wait_for_service(std::chrono::seconds(1)))
-    // {
-    //   RCLCPP_INFO(get_logger(), "Waiting for heater control service...");
-    // }
+    while (!heater_client_->wait_for_service(std::chrono::seconds(1)))
+    {
+      RCLCPP_INFO(get_logger(), "Waiting for heater control service...");
+    }
     RCLCPP_INFO(get_logger(), "Heater control service is available.");
 
     // Publisher for nozzle temperature
@@ -120,11 +92,11 @@ private:
   {
     RCLCPP_INFO(get_logger(), "Received goal request with file: %s", goal->filepath.c_str());
     // Check if the goal is valid
-    if (goal->filepath.empty())
-    {
-      RCLCPP_ERROR(get_logger(), "Invalid slicing request: empty file path");
-      return rclcpp_action::GoalResponse::REJECT;
-    }
+    // if (goal->filepath.empty())
+    // {
+    //   RCLCPP_ERROR(get_logger(), "Invalid slicing request: empty file path");
+    //   return rclcpp_action::GoalResponse::REJECT;
+    // }
     if (goal->preheat)
     {
       begin_heating();
@@ -145,6 +117,7 @@ private:
   void handle_accepted(
       const std::shared_ptr<rclcpp_action::ServerGoalHandle<ur_slicer_interfaces::action::PreparePrinter>> handle)
   {
+    RCLCPP_INFO(get_logger(), "Starting new thread");
     std::thread{ std::bind(&PrinterManager::slicing_request, this, std::placeholders::_1), handle }.detach();
   }
 
@@ -178,11 +151,12 @@ private:
     send_goal_options.result_callback = std::bind(&PrinterManager::slicing_result, this, std::placeholders::_1);
 
     auto result_future = slicer_client_->async_send_goal(slicing_goal, send_goal_options);
-    if (rclcpp::spin_until_future_complete(shared_from_this(), result_future) != rclcpp::FutureReturnCode::SUCCESS)
-    {
-      RCLCPP_ERROR(get_logger(), "Failed to send slicing request");
-      return;
-    }
+    // if (rclcpp::spin_until_future_complete(shared_from_this(), result_future) != rclcpp::FutureReturnCode::SUCCESS)
+    // {
+    //   RCLCPP_ERROR(get_logger(), "Failed to send slicing request");
+    //   return;
+    // }
+    RCLCPP_INFO(get_logger(), "Slicing request sent successfully");
   }
 
   void
@@ -217,26 +191,187 @@ private:
       RCLCPP_ERROR(get_logger(), "Slicing failed");
     }
 
+    // Initialize the MoveIt interface
+
+    auto move_group_node = std::make_shared<rclcpp::Node>(
+        "path_planner", rclcpp::NodeOptions().automatically_declare_parameters_from_overrides(true).parameter_overrides(
+                            { { "use_sim_time", true } }));
+
+    static const std::string PLANNING_GROUP = "ur_manipulator";
+
+    moveit::planning_interface::MoveGroupInterface move_group(move_group_node, PLANNING_GROUP);
+
+    joint_model_group = move_group.getCurrentState()->getJointModelGroup(PLANNING_GROUP);
+
+    RCLCPP_INFO(get_logger(), "Move group interface initialized.");
+    RCLCPP_INFO(get_logger(), "Planning group: %s", PLANNING_GROUP.c_str());
+
+    // Moveit has been initialized
+
+    // Go to home pose
+
+    bed_origin_.x = 0.5;
+    bed_origin_.y = 0.0;
+    bed_origin_.z = 0.0;
+
+    geometry_msgs::msg::Pose home_pose;
+    home_pose.position.x = bed_origin_.x;
+    home_pose.position.y = bed_origin_.y;
+    home_pose.position.z = bed_origin_.z + 0.5;
+    home_pose.orientation.w = 0.5;
+    home_pose.orientation.x = 0.5;
+    home_pose.orientation.y = 0.50;
+    home_pose.orientation.z = 0.50;
+
+    moveit::planning_interface::MoveGroupInterface::Plan current_plan;
+
+    move_group.setPoseTarget(home_pose);
+
+    bool success = (move_group.plan(current_plan) == moveit::core::MoveItErrorCode::SUCCESS);
+
+    if (success)
+    {
+      move_group.execute(current_plan);
+      RCLCPP_INFO(get_logger(), "Moving to home pose");
+    }
+    else
+    {
+      RCLCPP_ERROR(get_logger(), "Failed to move to home pose");
+    }
+
     // Handle the result
-    ur_slicer_interfaces::msg::Path sliced_list = result.result->path_list;
+    auto sliced_list = result.result->path_list;
     for (const auto& path : sliced_list)
     {
-      // First loop through Path objects
-      print_path(path);  // Now passing Path instead of Point
+      moveit_msgs::msg::RobotTrajectory trajectory;
+      moveit::planning_interface::MoveGroupInterface::Plan plan;
 
-      // Then loop through points within each Path (if needed)
-      for (const auto& point : path.points)
+      // Loop through the points in the path
+      std::vector<geometry_msgs::msg::Pose> waypoints;
+
+      for (const auto& point : path.path)
       {
-        // Process individual points
+        // Create a Pose object for the point
+        geometry_msgs::msg::Pose target_pose;
+        target_pose.position.x = point.x + bed_origin_.x;
+        target_pose.position.y = point.y + bed_origin_.y;
+        target_pose.position.z = point.z + bed_origin_.z;
+        target_pose.orientation.w = 0.5;
+        target_pose.orientation.x = 0.5;
+        target_pose.orientation.y = 0.5;
+        target_pose.orientation.z = 0.5;
+
+        RCLCPP_INFO(get_logger(), "Adding point to waypoints: x: %f, y: %f, z: %f", target_pose.position.x,
+                    target_pose.position.y, target_pose.position.z);
+
+        waypoints.push_back(target_pose);
       }
+
+      std::vector<geometry_msgs::msg::Pose> start_pose = { waypoints.front() };
+
+      // Move to the start pose
+      double start_fraction = move_group.computeCartesianPath(start_pose, eef_step, jump_threshold, trajectory);
+
+      if (start_fraction < 0.99)
+      {
+        RCLCPP_ERROR(get_logger(), "Failed to move to start pose (%.0f%% coverage)", start_fraction * 100);
+        return;
+      }
+
+      // Plan motion
+
+      double fraction = move_group.computeCartesianPath(waypoints, eef_step, jump_threshold, trajectory);
+      RCLCPP_INFO(get_logger(), "Visualizing plan 4 (Cartesian path) (%.2f%% achieved)", fraction * 100.0);
+
+      // Execute if successful and nozzle turns on
+      if (fraction >= 0.99)
+      {
+        plan.trajectory_ = trajectory;
+
+        RCLCPP_INFO(get_logger(), "Executing Cartesian path (%.0f%% achieved)", fraction * 100);
+        if (extruder_on())
+        {
+          RCLCPP_INFO(get_logger(), "Extruder turned on.");
+          move_group.execute(plan);
+        }
+        else
+        {
+          RCLCPP_ERROR(get_logger(), "Failed to turn on extruder.");
+          return;
+        }
+      }
+      else
+      {
+        RCLCPP_ERROR(get_logger(), "Cartesian path planning failed (%.0f%% coverage)", fraction * 100);
+      }
+      // First loop through Path objects
+      // print_path(move_group, path);  // Now passing Path instead of Point
     }
   }
 
-  std::vector<std::vector<geometry_msgs::msg::Pose>>
-  request_path_from_server(const std::string& filepath, const geometry_msgs::msg::Pose& origin_pose)
+  void print_path(moveit::planning_interface::MoveGroupInterface& move_group,
+                  const ur_slicer_interfaces::msg::Path& path)
   {
-    // Implementation for server communication
-    return {};  // Return actual path data
+    moveit_msgs::msg::RobotTrajectory trajectory;
+    moveit::planning_interface::MoveGroupInterface::Plan plan;
+
+    // Loop through the points in the path
+    std::vector<geometry_msgs::msg::Pose> waypoints;
+
+    for (const auto& point : path.path)
+    {
+      // Create a Pose object for the point
+      geometry_msgs::msg::Pose target_pose;
+      target_pose.position.x = point.x + bed_origin_.x;
+      target_pose.position.y = point.y + bed_origin_.y;
+      target_pose.position.z = point.z + bed_origin_.z;
+      target_pose.orientation.w = 0.0;
+      target_pose.orientation.x = 0.707;
+      target_pose.orientation.y = 0.0;
+      target_pose.orientation.z = 0.707;
+
+      waypoints.push_back(target_pose);
+    }
+
+    std::vector<geometry_msgs::msg::Pose> start_pose = { waypoints.front() };
+
+    // Move to the start pose
+    double start_fraction = move_group.computeCartesianPath(start_pose, eef_step, jump_threshold, trajectory);
+
+    if (start_fraction < 0.99)
+    {
+      RCLCPP_ERROR(get_logger(), "Failed to move to start pose (%.0f%% coverage)", start_fraction * 100);
+      return;
+    }
+
+    // Plan motion
+
+    double fraction = move_group.computeCartesianPath(waypoints, eef_step, jump_threshold, trajectory);
+    RCLCPP_INFO(get_logger(), "Visualizing plan 4 (Cartesian path) (%.2f%% achieved)", fraction * 100.0);
+
+    // Execute if successful and nozzle turns on
+    if (fraction >= 0.99)
+    {
+      plan.trajectory_ = trajectory;
+
+      RCLCPP_INFO(get_logger(), "Executing Cartesian path (%.0f%% achieved)", fraction * 100);
+      if (extruder_on())
+      {
+        RCLCPP_INFO(get_logger(), "Extruder turned on.");
+        move_group.execute(plan);
+      }
+      else
+      {
+        RCLCPP_ERROR(get_logger(), "Failed to turn on extruder.");
+        return;
+      }
+    }
+    else
+    {
+      RCLCPP_ERROR(get_logger(), "Cartesian path planning failed (%.0f%% coverage)", fraction * 100);
+    }
+
+    return;
   }
 
   // Heater Control Functions
@@ -248,21 +383,22 @@ private:
     request->heater_off = false;
     request->check_status = false;
     auto response = heater_client_->async_send_request(request);
-    if (rclcpp::spin_until_future_complete(shared_from_this(), response) == rclcpp::FutureReturnCode::SUCCESS)
-    {
-      if (response.get()->control_confirmed)
-      {
-        RCLCPP_INFO(get_logger(), "Heater turned on.");
-      }
-      else
-      {
-        RCLCPP_ERROR(get_logger(), "Heater failed to turn on.");
-      }
-    }
-    else
-    {
-      RCLCPP_ERROR(get_logger(), "Heater service failed to respond");
-    }
+    // if (rclcpp::spin_until_future_complete(shared_from_this(), response) == rclcpp::FutureReturnCode::SUCCESS)
+    // if (true)
+    // {
+    //   if (response.get()->control_confirmed)
+    //   {
+    //     RCLCPP_INFO(get_logger(), "Heater turned on.");
+    //   }
+    //   else
+    //   {
+    //     RCLCPP_ERROR(get_logger(), "Heater failed to turn on.");
+    //   }
+    // }
+    // else
+    // {
+    //   RCLCPP_ERROR(get_logger(), "Heater service failed to respond");
+    // }
     return;
   }
 
@@ -300,19 +436,19 @@ private:
   {
     auto request = std::make_shared<ur_slicer_interfaces::srv::ExtruderControl::Request>();
     request->on_extruder = true;
-    request->on_extruder = false;
+    request->off_extruder = false;
     auto response = extruder_client_->async_send_request(request);
     // Wait for the response
-    if (rclcpp::spin_until_future_complete(shared_from_this(), response) == rclcpp::FutureReturnCode::SUCCESS)
-    {
-      if (response.get()->motion_allowed)
-      {
-        RCLCPP_INFO(get_logger(), "Extruder turned on.");
-        return true;
-      }
-    }
-    RCLCPP_ERROR(get_logger(), "Extruder failed to turn on.");
-    return false;
+    // if (rclcpp::spin_until_future_complete(shared_from_this(), response) == rclcpp::FutureReturnCode::SUCCESS)
+    // {
+    //   if (response.get()->motion_allowed)
+    //   {
+    //     RCLCPP_INFO(get_logger(), "Extruder turned on.");
+    //     return true;
+    //   }
+    // }
+    // RCLCPP_ERROR(get_logger(), "Extruder failed to turn on.");
+    return true;
   }
 
   void extruder_off()
@@ -366,8 +502,8 @@ private:
 
   // Member variables
 
-  // MoveIt
-  std::shared_ptr<moveit::planning_interface::MoveGroupInterface> move_group_;
+  const moveit::core::JointModelGroup* joint_model_group;
+
   // Action server
   rclcpp_action::Server<ur_slicer_interfaces::action::PreparePrinter>::SharedPtr printer_server_;
   // Clients
@@ -384,12 +520,22 @@ private:
   int infill_percent_ = 20;   // Default infill percentage
   float layer_height_ = 0.2;  // Default layer height
   float print_speed_ = 50.0;  // Default print speed
+
+  // Bed settings
+  geometry_msgs::msg::Point bed_origin_;
+
+  // Moveit Settings
+  const double jump_threshold = 0.0;
+  const double eef_step = 0.001;
 };
 
 int main(int argc, char* argv[])
 {
   rclcpp::init(argc, argv);
-  auto node = std::make_shared<PrinterManager>();
+  auto node = std::make_shared<PrinterManager>(
+      "ur5e_manager_node",
+      rclcpp::NodeOptions().automatically_declare_parameters_from_overrides(true).parameter_overrides(
+          { { "use_sim_time", true } }));
   rclcpp::executors::MultiThreadedExecutor executor;
   executor.add_node(node);
   executor.spin();
