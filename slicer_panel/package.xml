@@ -21,7 +21,6 @@
   <depend>rviz_default_plugins</depend>
   <depend>pluginlib</depend>
   <depend>Qt5</depend>
-
   <depend>ur_slicer_interfaces</depend>
 
   <export>
