@@ -1,0 +1,7 @@
+string filepath
+geometry_msgs/Pose origin_pose
+---
+ur_slicer_interfaces/Path[] path_list
+---
+int32 total_layers
+int32 layers_finished

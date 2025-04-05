@@ -2,6 +2,7 @@
 #define RVIZ_UI_PANEL_PANEL_HPP_
 
 #include <rclcpp/rclcpp.hpp>
+#include <rclcpp_action/rclcpp_action.hpp>
 #include <rviz_common/panel.hpp>
 #include <memory>
 #include <interactive_markers/interactive_marker_server.hpp>
@@ -17,8 +18,10 @@
 #include "tf2/transform_datatypes.h"
 #include "tf2_geometry_msgs/tf2_geometry_msgs.hpp"
 #include "tf2_ros/transform_broadcaster.h"
+#include "ur_slicer_interfaces/action/prepare_printer.hpp"
 #include "ur_slicer_interfaces/msg/bed_corners.hpp"
 #include "ur_slicer_interfaces/msg/path.hpp"
+#include "ur_slicer_interfaces/msg/slicer_settings.hpp"
 
 #include <QVBoxLayout>
 #include <QHBoxLayout>
@@ -66,10 +69,22 @@ protected Q_SLOTS:
   void visualizeClicked();
   void exportClicked();
   void clearWSClicked();
+  void slicing_confirmed(
+      const rclcpp_action::ClientGoalHandle<ur_slicer_interfaces::action::PreparePrinter>::SharedPtr goal_handle);
+  void slicing_feedback(
+      const rclcpp_action::ClientGoalHandle<ur_slicer_interfaces::action::PreparePrinter>::SharedPtr goal_handle,
+      const std::shared_ptr<const ur_slicer_interfaces::action::PreparePrinter::Feedback> feedback);
+  void slicing_result(
+      const rclcpp_action::ClientGoalHandle<ur_slicer_interfaces::action::PreparePrinter>::WrappedResult& result);
 
 private:
   std::shared_ptr<interactive_markers::InteractiveMarkerServer> server_;  // Interactive marker server for STL objects
+  rclcpp_action::Client<ur_slicer_interfaces::action::PreparePrinter>::SharedPtr printer_client_;  // Action client for
+                                                                                                   // printer
+                                                                                                   // preparation
   rclcpp::Subscription<ur_slicer_interfaces::msg::BedCorners>::SharedPtr bed_subscriber_;  // Subscriber for bed corners
+  rclcpp::Publisher<ur_slicer_interfaces::msg::SlicerSettings>::SharedPtr settings_pub_;   // Publisher for slicer
+                                                                                           // settings
 
   QTimer* spin_timer_;
 

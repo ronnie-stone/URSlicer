@@ -11,8 +11,14 @@ find_package(geometry_msgs REQUIRED)
 find_package(rosidl_default_generators REQUIRED)
 
 rosidl_generate_interfaces(${PROJECT_NAME}
+  "action/PreparePrinter.action"
+  "action/Slicer.action"
   "msg/BedCorners.msg"
+  "msg/NozzleTemperature.msg"
   "msg/Path.msg"
+  "msg/SlicerSettings.msg"
+  "srv/ExtruderControl.srv"
+  "srv/HeaterControl.srv"
   DEPENDENCIES geometry_msgs 
 )
 

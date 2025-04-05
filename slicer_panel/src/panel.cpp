@@ -77,6 +77,12 @@ void Slicer::onInitialize()
   bed_subscriber_ = this->create_subscription<ur_slicer_interfaces::msg::BedCorners>(
       "/bed_corners", 1, std::bind(&Slicer::rectangleBedCreation, this, std::placeholders::_1));
 
+  // Printer Manager Action Client
+  printer_client_ = rclcpp_action::create_client<ur_slicer_interfaces::action::PreparePrinter>(this, "/ur_printer");
+
+  // Settings Publisher
+  settings_pub_ = this->create_publisher<ur_slicer_interfaces::msg::SlicerSettings>("/slicer_settings", 1);
+
   // Set up timer for spinning the node
   spin_timer_ = new QTimer(this);
   connect(spin_timer_, &QTimer::timeout, this, &Slicer::spin);
@@ -274,16 +280,53 @@ void Slicer::sliceClicked()
   // Slicing Code
   visualize_button_->setEnabled(true);
   export_button_->setEnabled(true);
+
+  // Publish current settings
+  auto settings = ur_slicer_interfaces::msg::SlicerSettings();
+  settings.nozzle_temperature = 200;
+  settings.infill_density = 20;
+  settings.layer_height = 0.2;
+  settings.print_speed = 50.0;
+  settings_pub_->publish(settings);
+  RCLCPP_INFO(this->get_logger(), "Slicing settings published");
+
+  if (!printer_client_->wait_for_action_server(std::chrono::seconds(1)))
+  {
+    RCLCPP_ERROR(this->get_logger(), "Printer action server not available");
+    return;
+  }
+  RCLCPP_INFO(this->get_logger(), "Printer action server available");
+  auto goal = ur_slicer_interfaces::action::PreparePrinter::Goal();
+  // goal.filepath = path_label_->text().toStdString();
+  goal.filepath = "testing";
+  goal.preheat = true;
+  goal.origin_pose = geometry_msgs::msg::Pose();
+
+  auto send_goal_options = rclcpp_action::Client<ur_slicer_interfaces::action::PreparePrinter>::SendGoalOptions();
+  send_goal_options.goal_response_callback = std::bind(&Slicer::slicing_confirmed, this, std::placeholders::_1);
+  send_goal_options.feedback_callback =
+      std::bind(&Slicer::slicing_feedback, this, std::placeholders::_1, std::placeholders::_2);
+  send_goal_options.result_callback = std::bind(&Slicer::slicing_result, this, std::placeholders::_1);
+  auto result_future = printer_client_->async_send_goal(goal, send_goal_options);
+  if (rclcpp::spin_until_future_complete(this->get_node_base_interface(), result_future) !=
+      rclcpp::FutureReturnCode::SUCCESS)
+  {
+    RCLCPP_ERROR(this->get_logger(), "Failed to send slicing request");
+    return;
+  }
+  RCLCPP_INFO(this->get_logger(), "Slicing request sent");
 }
 
 void Slicer::visualizeClicked()
 {
   // Show motion planning once slicing has been done
+  RCLCPP_INFO(this->get_logger(), "Visualizing motion planning");
 }
 
 void Slicer::exportClicked()
 {
   // Export however is determined
+  RCLCPP_INFO(this->get_logger(), "Exporting sliced file");
 }
 
 void Slicer::clearWSClicked()
@@ -298,6 +341,39 @@ void Slicer::clearWSClicked()
 
   // Remove interactive marker object to set up creation of new one
   deleteSTLMarker();
+}
+
+// Printing Manager Action Response Functions
+
+void Slicer::slicing_confirmed(
+    const rclcpp_action::ClientGoalHandle<ur_slicer_interfaces::action::PreparePrinter>::SharedPtr goal_handle)
+{
+  if (!goal_handle)
+  {
+    RCLCPP_ERROR(this->get_logger(), "Slicing request was rejected");
+    return;
+  }
+  RCLCPP_INFO(this->get_logger(), "Slicing request accepted");
+}
+
+void Slicer::slicing_feedback(
+    const rclcpp_action::ClientGoalHandle<ur_slicer_interfaces::action::PreparePrinter>::SharedPtr goal_handle,
+    const std::shared_ptr<const ur_slicer_interfaces::action::PreparePrinter::Feedback> feedback)
+{
+  RCLCPP_INFO(this->get_logger(), "Slicing progress:");
+}
+
+void Slicer::slicing_result(
+    const rclcpp_action::ClientGoalHandle<ur_slicer_interfaces::action::PreparePrinter>::WrappedResult& result)
+{
+  if (result.code == rclcpp_action::ResultCode::SUCCEEDED)
+  {
+    RCLCPP_INFO(this->get_logger(), "Slicing completed successfully");
+  }
+  else
+  {
+    RCLCPP_ERROR(this->get_logger(), "Slicing failed");
+  }
 }
 
 std::shared_ptr<interactive_markers::InteractiveMarkerServer> server_;

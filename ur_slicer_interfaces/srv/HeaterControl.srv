@@ -1,0 +1,7 @@
+bool heater_on
+bool heater_off
+bool check_status
+---
+bool heater_ready
+bool control_confirmed
+bool warning_hot
