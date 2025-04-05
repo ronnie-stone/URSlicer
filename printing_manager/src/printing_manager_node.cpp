@@ -193,31 +193,42 @@ private:
 
     // Initialize the MoveIt interface
 
-    auto move_group_node = std::make_shared<rclcpp::Node>(
-        "path_planner", rclcpp::NodeOptions().automatically_declare_parameters_from_overrides(true).parameter_overrides(
-                            { { "use_sim_time", true } }));
+    // auto move_group_node = std::make_shared<rclcpp::Node>(
+    //     "path_planner",
+    //     rclcpp::NodeOptions().automatically_declare_parameters_from_overrides(true).parameter_overrides(
+    //                         { { "use_sim_time", true } }));
 
     static const std::string PLANNING_GROUP = "ur_manipulator";
 
-    moveit::planning_interface::MoveGroupInterface move_group(move_group_node, PLANNING_GROUP);
+    // moveit::planning_interface::MoveGroupInterface move_group(move_group_node, PLANNING_GROUP);
+
+    moveit::planning_interface::MoveGroupInterface move_group(this->shared_from_this(), PLANNING_GROUP);
 
     joint_model_group = move_group.getCurrentState()->getJointModelGroup(PLANNING_GROUP);
 
     RCLCPP_INFO(get_logger(), "Move group interface initialized.");
     RCLCPP_INFO(get_logger(), "Planning group: %s", PLANNING_GROUP.c_str());
 
+    // Scale down velocity
+    move_group.setMaxVelocityScalingFactor(0.1);
+    move_group.setMaxAccelerationScalingFactor(0.1);
     // Moveit has been initialized
+
+    // move_group.setPlannerId("RRTConnectkConfigDefault");
+
+    // move_group.setTrajectoryFilter("time_optimal_trajectory_generation");
+    // move_group.setPlanningPipelineId("ompl");  // Match RViz pipeline
 
     // Go to home pose
 
     bed_origin_.x = 0.5;
     bed_origin_.y = 0.0;
-    bed_origin_.z = 0.0;
+    bed_origin_.z = -0.25;
 
     geometry_msgs::msg::Pose home_pose;
     home_pose.position.x = bed_origin_.x;
     home_pose.position.y = bed_origin_.y;
-    home_pose.position.z = bed_origin_.z + 0.5;
+    home_pose.position.z = bed_origin_.z + 0.25;
     home_pose.orientation.w = 0.5;
     home_pose.orientation.x = 0.5;
     home_pose.orientation.y = 0.50;
@@ -225,7 +236,25 @@ private:
 
     moveit::planning_interface::MoveGroupInterface::Plan current_plan;
 
-    move_group.setPoseTarget(home_pose);
+    // get pipeline planner id
+    std::string planner_id = move_group.getPlannerId();
+    RCLCPP_INFO(get_logger(), "Current planner id: %s", planner_id.c_str());
+
+    // moveit::core::RobotStatePtr current_state = *move_group.getCurrentState();
+    // // log current state with rclcpp
+    // RCLCPP_INFO(get_logger(), "Current state: %s",
+    //             current_state->getJointModelGroup(PLANNING_GROUP)->getName().c_str());
+
+    // move_group.setStartState(*move_group.getCurrentState());
+
+    moveit::core::RobotStatePtr current_state = move_group.getCurrentState();
+    RCLCPP_INFO(get_logger(), "Current state: %s",
+                current_state->getJointModelGroup(PLANNING_GROUP)->getName().c_str());
+    // show state information
+
+    // move_group.setStartState(current_state);
+    move_group.setJointValueTarget(home_pose);
+    // move_group.setPoseTarget(home_pose);
 
     bool success = (move_group.plan(current_plan) == moveit::core::MoveItErrorCode::SUCCESS);
 
@@ -237,6 +266,7 @@ private:
     else
     {
       RCLCPP_ERROR(get_logger(), "Failed to move to home pose");
+      return;
     }
 
     // Handle the result
@@ -335,13 +365,16 @@ private:
 
     std::vector<geometry_msgs::msg::Pose> start_pose = { waypoints.front() };
 
+    RCLCPP_INFO(get_logger(), "Adding point to waypoints: x: %f, y: %f, z: %f", start_pose[0].position.x,
+                start_pose[0].position.y, start_pose[0].position.z);
+
     // Move to the start pose
     double start_fraction = move_group.computeCartesianPath(start_pose, eef_step, jump_threshold, trajectory);
 
     if (start_fraction < 0.99)
     {
       RCLCPP_ERROR(get_logger(), "Failed to move to start pose (%.0f%% coverage)", start_fraction * 100);
-      return;
+      // return;
     }
 
     // Plan motion
@@ -526,7 +559,7 @@ private:
 
   // Moveit Settings
   const double jump_threshold = 0.0;
-  const double eef_step = 0.001;
+  const double eef_step = 0.01;
 };
 
 int main(int argc, char* argv[])

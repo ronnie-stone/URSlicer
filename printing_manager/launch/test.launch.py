@@ -229,7 +229,7 @@ def launch_setup(context, *args, **kwargs):
         "warehouse_host": warehouse_sqlite_path,
     }
 
-    # Start the actual move_group node/action server
+    # # Start the actual move_group node/action server
     # move_group_node = Node(
     #     package="moveit_ros_move_group",
     #     executable="move_group",
@@ -249,7 +249,7 @@ def launch_setup(context, *args, **kwargs):
     #     ],
     # )
 
-    # rviz with moveit configuration
+    # # rviz with moveit configuration
     # rviz_config_file = PathJoinSubstitution(
     #     [FindPackageShare(moveit_config_package), "rviz", "view_robot.rviz"]
     # )
@@ -298,7 +298,15 @@ def launch_setup(context, *args, **kwargs):
         parameters=[
             robot_description,
             robot_description_semantic,
+            publish_robot_description_semantic,
             robot_description_kinematics,
+            robot_description_planning,
+            ompl_planning_pipeline_config,
+            trajectory_execution,
+            moveit_controllers,
+            planning_scene_monitor_parameters,
+            {"use_sim_time": use_sim_time},
+            warehouse_ros_config,
         ],
     )
 
@@ -404,7 +412,7 @@ def generate_launch_description():
     declared_arguments.append(
         DeclareLaunchArgument(
             "use_sim_time",
-            default_value="false",
+            default_value="true",
             description="Make MoveIt to use simulation time. This is needed for the trajectory planing in simulation.",
         )
     )
