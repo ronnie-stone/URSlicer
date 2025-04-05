@@ -1,6 +1,9 @@
 #ifndef RVIZ_UI_PANEL_PANEL_HPP_
 #define RVIZ_UI_PANEL_PANEL_HPP_
 
+#ifndef SLICER_PANEL_HPP
+#define SLICER_PANEL_HPP
+
 #include <rclcpp/rclcpp.hpp>
 #include <rclcpp_action/rclcpp_action.hpp>
 #include <rviz_common/panel.hpp>
@@ -76,6 +79,7 @@ protected Q_SLOTS:
       const std::shared_ptr<const ur_slicer_interfaces::action::PreparePrinter::Feedback> feedback);
   void slicing_result(
       const rclcpp_action::ClientGoalHandle<ur_slicer_interfaces::action::PreparePrinter>::WrappedResult& result);
+  void validateNumericInput();
 
 private:
   std::shared_ptr<interactive_markers::InteractiveMarkerServer> server_;  // Interactive marker server for STL objects
@@ -86,8 +90,6 @@ private:
   rclcpp::Publisher<ur_slicer_interfaces::msg::SlicerSettings>::SharedPtr settings_pub_;   // Publisher for slicer
                                                                                            // settings
 
-  QTimer* spin_timer_;
-
   QPushButton* file_button_;
   QLabel* path_label_;
   QPushButton* slice_button_;
@@ -95,20 +97,35 @@ private:
   QPushButton* export_button_;
   QPushButton* clear_ws_button_;
 
+  // Settings Widgets
+  QLabel* layer_height_label_;
   QLineEdit* layer_height_input_;
+
+  QLabel* infill_density_label_;
   QLineEdit* infill_density_input_;
+
+  QLabel* temperature_label_;
   QLineEdit* temperature_input_;
+
+  QLabel* bed_adhesion_label_;
   QComboBox* bed_adhesion_combo_;
+
+  QLabel* infill_pattern_label_;
   QComboBox* infill_pattern_combo_;
+
+  QLabel* print_speed_label_;
   QLineEdit* print_speed_input_;
+
+  QTimer* spin_timer_;
 
   void initializeComboBoxes()
   {
-      bed_adhesion_combo_->addItems({"None", "Skirt", "Brim", "Raft"});
-      infill_pattern_combo_->addItems({"Triangle", "Gyroid", "Cubic"});
+    bed_adhesion_combo_->addItems({ "None", "Skirt", "Brim", "Raft" });
+    infill_pattern_combo_->addItems({ "Triangle", "Gyroid", "Cubic" });
   }
 };
 
 }  // namespace slicer_panel
 
 #endif  // RVIZ_UI_PANEL_PANEL_HPP_
+#endif  // SLICER_PANEL_HPP
