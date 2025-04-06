@@ -21,6 +21,7 @@ setup(
         "console_scripts": [
             "bed_corners_tester = test_nodes.bed_test:main",
             "manager_tests = test_nodes.manager_test:main",
+            "mock_slicer = test_nodes.mock_slicer:main",
         ],
     },
 )

@@ -1,39 +1,60 @@
 import rclpy
+import threading
 from rclpy.node import Node
 from ur_slicer_interfaces.msg import NozzleTemperature
 from ur_slicer_interfaces.srv import ExtruderControl, HeaterControl
 from ur_msgs.msg import ToolDataMsg
 from ur_msgs.srv import SetIO
+from functools import partial
 
 
 class URExtruderInterface(Node):
-    """
-    Service-based node that:
-      - Receives updates via subscriptions (from slicer commands, joint states, and an Analog message).
-      - Provides two services:
-          1. get_do_commands: Returns DO commands based on robot motion and slicer commands.
-          2. get_hotend_temperature: Returns the latest hotend temperature computed from an Analog input.
-    """
-
     def __init__(self):
         super().__init__("ur5e_extruder_interface")
 
+        # Declare parameters first
         self.declare_parameter("simulation", True)
-
         self.simulation = self.get_parameter("simulation").value
 
+        # Hardware configuration
         self.HEATER_DO_PIN = SetIO.Request.PIN_TOOL_DOUT0
         self.EXTRUDER_DO_PIN = SetIO.Request.PIN_TOOL_DOUT1
 
-        # -------------------Publishers--------------------
+        # State management
+        self.latest_temperature = 0.0
+        self.desired_temperature = 0.0
+        self.maintain_heater = False
+        self.heater_on = False
+
+        # Thread safety
+        self.service_lock = threading.Lock()
+        self.pending_requests = {"heater": None, "extruder": None}
+
+        # Initialize components in correct order
+        self._init_clients()
+        self._init_publishers()
+        self._init_subscriptions()
+        self._init_services()
+
+        self.get_logger().info("UR5e Extruder Interface Node Initialized")
+
+    def _init_clients(self):
+        """Initialize service clients first for early availability"""
+        self.io_set_client = self.create_client(
+            SetIO, "/io_and_status_controller/set_io"
+        )
+        while not self.io_set_client.wait_for_service(timeout_sec=1.0):
+            self.get_logger().info("Waiting for UR IO service...")
+
+    def _init_publishers(self):
+        """Initialize publishers and timer with correct callback reference"""
         self.temp_pub = self.create_publisher(
             NozzleTemperature, "extruder_temperature", 1
         )
-        timer_period = 5  # seconds
-        self.timer = self.create_timer(timer_period, self.extruder_temp_pub)
+        self.timer = self.create_timer(5.0, self.extruder_temp_pub)  # Float period
 
-        # ------------------Subscriptions--------------------
-        # Subscription for the analog input signal from the UR toolhead using ur_msgs/Analog
+    def _init_subscriptions(self):
+        """Initialize subscriptions after publishers"""
         self.create_subscription(
             ToolDataMsg,
             "/io_and_status_controller/tool_data",
@@ -41,173 +62,173 @@ class URExtruderInterface(Node):
             1,
         )
 
-        # ------------------Service Servers--------------------
-        # Heater Control Service
+    def _init_services(self):
+        """Initialize services last to ensure dependencies are ready"""
+        self.create_service(HeaterControl, "heater_control", self.handle_heater_control)
         self.create_service(
-            HeaterControl,
-            "heater_control",
-            self.handle_heater_control,
+            ExtruderControl, "extruder_control", self.handle_extruder_control
         )
 
-        # Extruder Control Service
-        self.create_service(
-            ExtruderControl,
-            "extruder_control",
-            self.handle_extruder_control,
-        )
-
-        # ------------------Internal State--------------------
-        self.latest_temperature = 0.0
-        self.desired_temperature = 0.0
-        self.maintain_heater = False
-
-        # -----------------Service Clients----------------------
-        self.io_set_client = self.create_client(
-            SetIO, "/io_and_status_controller/set_io"
-        )
-        while not self.io_set_client.wait_for_service(timeout_sec=1.0):
-            self.get_logger().info("Waiting for UR IO service to be available...")
-        self.get_logger().info("UR IO service is available.")
-
-        self.get_logger().info(
-            "UR5e Extruder Interface Node Initialized (Service-based)"
-        )
-
-    # ------------------Publisher--------------------
+    # ------------------ Publisher Method --------------------
     def extruder_temp_pub(self):
-        """
-        Publish the latest temperature to the topic "extruder_temperature".
-        """
+        """Timer callback for temperature publishing"""
         msg = NozzleTemperature()
         msg.nozzle_temperature = self.latest_temperature
         self.temp_pub.publish(msg)
         self.get_logger().info(
             f"Published extruder temperature: {self.latest_temperature:.2f} °C"
         )
+        if self.heater_on and not self.maintain_heater and not self.simulation:
+            self.set_heater(False)
+            self.heater_on = False
 
-    # ------------------Subscription Callbacks--------------------
-
+    # ------------------ Subscription Callback --------------------
     def tool_data_callback(self, msg: ToolDataMsg):
-        """
-        Process the Analog message from the UR toolhead.
-        Checks the pin number and converts the voltage reading (msg.state)
-        to a temperature in °C.
-        For example, here 0–10 V corresponds to 0–300 °C.
-        Adjust the conversion factor based on your sensor calibration.
-        """
+        """Process tool data and manage heater state"""
         analog_signal = msg.analog_input2
         self.latest_temperature = int((analog_signal / 10.0) * 300.0)
+
         if self.simulation:
             self.latest_temperature = int(self.desired_temperature)
             return
-        if self.maintain_heater:
-            if self.latest_temperature < self.desired_temperature:
-                self.set_heater(True)
-            else:
-                self.set_heater(False)
 
-    # ------------------Service Handlers--------------------
-    def handle_heater_control(
-        self, request: HeaterControl.Request, response: HeaterControl.Response
-    ):
-        """
-        Service callback to control the heater.
-        """
+        if self.maintain_heater:
+            target_state = self.latest_temperature < self.desired_temperature
+            if target_state != self.heater_on:
+                self.set_heater(target_state)
+                self.heater_on = target_state
+
+    # ------------------ Service Handlers --------------------
+    def handle_heater_control(self, request, response):
+        """Handle heater control service requests"""
         self.desired_temperature = request.desired_temperature
 
         if request.heater_on and request.heater_off:
-            self.get_logger().error(
-                "Service heater_control called: heater ON and OFF at the same time"
-            )
+            self.get_logger().error("Invalid heater state request: both ON and OFF")
             response.control_confirmed = False
             return response
 
         if request.heater_on:
             self.maintain_heater = True
-            self.get_logger().info("Service heater_control called: heater ON")
-        if request.heater_off:
+            self.get_logger().info("Heater control: ON")
+        elif request.heater_off:
             self.maintain_heater = False
-            self.get_logger().info("Service heater_control called: heater OFF")
+            self.get_logger().info("Heater control: OFF")
 
-        self.get_logger().info(
-            f"Service heater_control called: temperature={self.desired_temperature:.2f} °C"
-        )
         response.control_confirmed = True
         return response
 
-    def handle_extruder_control(
-        self, request: ExtruderControl.Request, response: ExtruderControl.Response
-    ):
-        """
-        Service callback to control the extruder.
-        """
+    def handle_extruder_control(self, request, response):
+        """Handle extruder control service requests"""
         if request.on_extruder and request.off_extruder:
-            self.get_logger().error(
-                "Service extruder_control called: extruder ON and OFF at the same time"
-            )
+            self.get_logger().error("Invalid extruder state request: both ON and OFF")
             response.control_confirmed = False
             return response
+
+        target_state = None
         if request.on_extruder:
-            self.get_logger().info("Service extruder_control called: extruder ON")
-            response.control_confirmed = self.set_extruder(True)
-        if request.off_extruder:
-            self.get_logger().info("Service extruder_control called: extruder OFF")
-            response.control_confirmed = self.set_extruder(False)
+            target_state = True
+            self.get_logger().info("Extruder control: ON")
+        elif request.off_extruder:
+            target_state = False
+            self.get_logger().info("Extruder control: OFF")
+
+        if target_state is not None:
+            response.control_confirmed = self.set_extruder(target_state)
+        else:
+            response.control_confirmed = False
+
         return response
 
-    # ------------------Service Clients--------------------
-    def set_heater(self, state: bool):
-        """
-        Set the heater state using the UR IO service.
-        """
-        if self.simulation:
-            return True
-        request = SetIO.Request()
-        request.fun = SetIO.Request.FUN_SET_DIGITAL_OUT
-        request.pin = self.HEATER_DO_PIN
-        if state:
-            request.state = SetIO.Request.STATE_ON
-        else:
-            request.state = SetIO.Request.STATE_OFF
-        future = self.io_set_client.call_async(request)
-        rclpy.spin_until_future_complete(self, future)
-        response = future.result()
-        if response is not None:
-            self.get_logger().info(f"Set heater state to {state}")
-            return True
-        else:
-            self.get_logger().error("Failed to set heater state")
-            return False
+    # ------------------ Service Clients --------------------
+    def set_heater(self, state: bool) -> bool:
+        """Thread-safe heater control with async calls"""
+        with self.service_lock:
+            if (
+                self.pending_requests["heater"]
+                and not self.pending_requests["heater"].done()
+            ):
+                self.get_logger().warning("Heater command already in progress")
+                return False
 
-    def set_extruder(self, state: bool):
-        """
-        Set the extruder state using the UR IO service.
-        """
-        if self.simulation:
+            request = SetIO.Request(
+                fun=SetIO.Request.FUN_SET_DIGITAL_OUT,
+                pin=self.HEATER_DO_PIN,
+                state=float(
+                    SetIO.Request.STATE_ON if state else SetIO.Request.STATE_OFF
+                ),
+            )
+
+            future = self.io_set_client.call_async(request)
+            future.add_done_callback(
+                partial(self._heater_response_cb, target_state=state)
+            )
+            self.pending_requests["heater"] = future
             return True
-        request = SetIO.Request()
-        request.fun = SetIO.Request.FUN_SET_DIGITAL_OUT
-        request.pin = self.EXTRUDER_DO_PIN
-        if state:
-            request.state = SetIO.Request.STATE_ON
-        else:
-            request.state = SetIO.Request.STATE_OFF
-        future = self.io_set_client.call_async(request)
-        rclpy.spin_until_future_complete(self, future)
-        response = future.result()
-        if response.success:
-            self.get_logger().info(f"Set extruder state to {state}")
+
+    def set_extruder(self, state: bool) -> bool:
+        """Thread-safe extruder control with async calls"""
+        with self.service_lock:
+            if (
+                self.pending_requests["extruder"]
+                and not self.pending_requests["extruder"].done()
+            ):
+                self.get_logger().warning("Extruder command already in progress")
+                return False
+
+            request = SetIO.Request(
+                fun=SetIO.Request.FUN_SET_DIGITAL_OUT,
+                pin=self.EXTRUDER_DO_PIN,
+                state=float(
+                    SetIO.Request.STATE_ON if state else SetIO.Request.STATE_OFF
+                ),
+            )
+
+            future = self.io_set_client.call_async(request)
+            future.add_done_callback(
+                partial(self._extruder_response_cb, target_state=state)
+            )
+            self.pending_requests["extruder"] = future
             return True
-        else:
-            self.get_logger().error("Failed to set extruder state")
-            return False
+
+    # ------------------ Response Callbacks --------------------
+    def _heater_response_cb(self, future, target_state):
+        """Handle heater service response"""
+        try:
+            response = future.result()
+            if response.success:
+                self.get_logger().info(
+                    f"Heater {'ON' if target_state else 'OFF'} confirmed"
+                )
+                self.heater_on = target_state
+            else:
+                self.get_logger().error("Heater control failed")
+        except Exception as e:
+            self.get_logger().error(f"Heater service error: {str(e)}")
+
+    def _extruder_response_cb(self, future, target_state):
+        """Handle extruder service response"""
+        try:
+            response = future.result()
+            if response.success:
+                self.get_logger().info(
+                    f"Extruder {'ON' if target_state else 'OFF'} confirmed"
+                )
+            else:
+                self.get_logger().error("Extruder control failed")
+        except Exception as e:
+            self.get_logger().error(f"Extruder service error: {str(e)}")
 
 
 def main(args=None):
     rclpy.init(args=args)
     node = URExtruderInterface()
+
     try:
-        rclpy.spin(node)
+        # Use multi-threaded executor for concurrent processing
+        executor = rclpy.executors.MultiThreadedExecutor()
+        executor.add_node(node)
+        executor.spin()
     except KeyboardInterrupt:
         pass
     finally:

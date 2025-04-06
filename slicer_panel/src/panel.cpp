@@ -405,6 +405,7 @@ void Slicer::preheatClicked()
         RCLCPP_INFO(this->get_logger(), "Heater turned off");
         hotend_status_label->setText("Hotend Status: OFF");
         hotend_status_label->setStyleSheet("color: green");
+        preheat_button_->setText("Preheat Hotend");
       }
       else
       {
@@ -432,6 +433,7 @@ void Slicer::preheatClicked()
         RCLCPP_INFO(this->get_logger(), "Heater turned on");
         hotend_status_label->setText("Hotend Status: ON");
         hotend_status_label->setStyleSheet("color: red");
+        preheat_button_->setText("Turn Off Hotend");
       }
       else
       {
