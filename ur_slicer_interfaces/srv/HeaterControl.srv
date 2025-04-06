@@ -1,7 +1,5 @@
 bool heater_on
 bool heater_off
-bool check_status
+int32 desired_temperature
 ---
-bool heater_ready
 bool control_confirmed
-bool warning_hot

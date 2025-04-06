@@ -25,6 +25,7 @@
 #include "ur_slicer_interfaces/msg/bed_corners.hpp"
 #include "ur_slicer_interfaces/msg/path.hpp"
 #include "ur_slicer_interfaces/msg/slicer_settings.hpp"
+#include "ur_slicer_interfaces/srv/heater_control.hpp"
 
 #include <QVBoxLayout>
 #include <QHBoxLayout>
@@ -70,7 +71,7 @@ protected Q_SLOTS:
   void selectFileClicked();
   void sliceClicked();
   void visualizeClicked();
-  void exportClicked();
+  void preheatClicked();
   void clearWSClicked();
   void slicing_confirmed(
       const rclcpp_action::ClientGoalHandle<ur_slicer_interfaces::action::PreparePrinter>::SharedPtr goal_handle);
@@ -80,22 +81,28 @@ protected Q_SLOTS:
   void slicing_result(
       const rclcpp_action::ClientGoalHandle<ur_slicer_interfaces::action::PreparePrinter>::WrappedResult& result);
   void validateNumericInput();
+  void publishSettings();
 
 private:
   std::shared_ptr<interactive_markers::InteractiveMarkerServer> server_;  // Interactive marker server for STL objects
   rclcpp_action::Client<ur_slicer_interfaces::action::PreparePrinter>::SharedPtr printer_client_;  // Action client for
                                                                                                    // printer
                                                                                                    // preparation
+  rclcpp::Client<ur_slicer_interfaces::srv::HeaterControl>::SharedPtr heater_client_;      // Service client for heater
+                                                                                           // control
   rclcpp::Subscription<ur_slicer_interfaces::msg::BedCorners>::SharedPtr bed_subscriber_;  // Subscriber for bed corners
   rclcpp::Publisher<ur_slicer_interfaces::msg::SlicerSettings>::SharedPtr settings_pub_;   // Publisher for slicer
                                                                                            // settings
 
+  QLabel* hotend_status_label;
   QPushButton* file_button_;
   QLabel* path_label_;
   QPushButton* slice_button_;
   QPushButton* visualize_button_;
-  QPushButton* export_button_;
+  QPushButton* preheat_button_;
   QPushButton* clear_ws_button_;
+
+  bool heater_on_ = false;
 
   // Settings Widgets
   QLabel* layer_height_label_;

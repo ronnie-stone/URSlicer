@@ -46,6 +46,18 @@ private:
 
     RCLCPP_INFO(get_logger(), "Printer preparation action server is ready.");
 
+    // Subscriber for nozzle temperature
+    nozzle_temp_sub_ = create_subscription<ur_slicer_interfaces::msg::NozzleTemperature>(
+        "nozzle_temperature", 10, std::bind(&PrinterManager::update_temp, this, std::placeholders::_1));
+
+    // Subscriber for slicer settings
+    slicer_settings_sub_ = create_subscription<ur_slicer_interfaces::msg::SlicerSettings>(
+        "slicer_settings", 10, std::bind(&PrinterManager::slicer_settings_callback, this, std::placeholders::_1));
+
+    // Subscriber for beginning printing
+    begin_printing_sub_ = create_subscription<std_msgs::msg::Bool>(
+        "begin_printing", 10, std::bind(&PrinterManager::begin_printing_callback, this, std::placeholders::_1));
+
     // Action client for slicing
     slicer_client_ = rclcpp_action::create_client<ur_slicer_interfaces::action::Slicer>(this, "slicer_action");
     // Wait for the action server to be available
@@ -72,17 +84,6 @@ private:
       RCLCPP_INFO(get_logger(), "Waiting for heater control service...");
     }
     RCLCPP_INFO(get_logger(), "Heater control service is available.");
-
-    // Publisher for nozzle temperature
-    nozzle_temp_pub_ = create_publisher<ur_slicer_interfaces::msg::NozzleTemperature>("nozzle_temperature", 10);
-
-    // Subscriber for slicer settings
-    slicer_settings_sub_ = create_subscription<ur_slicer_interfaces::msg::SlicerSettings>(
-        "slicer_settings", 10, std::bind(&PrinterManager::slicer_settings_callback, this, std::placeholders::_1));
-
-    // Subscriber for beginning printing
-    begin_printing_sub_ = create_subscription<std_msgs::msg::Bool>(
-        "begin_printing", 10, std::bind(&PrinterManager::begin_printing_callback, this, std::placeholders::_1));
   }
 
   // Action server callbacks
@@ -299,6 +300,13 @@ private:
 
       std::vector<geometry_msgs::msg::Pose> start_pose = { waypoints.front() };
 
+      // Wait for nozzle heater to be ready
+      while (abs(current_temp_ < nozzle_temp_) >= 5)
+      {
+        RCLCPP_INFO(get_logger(), "Waiting for nozzle heater to reach %d degrees Celsius", nozzle_temp_);
+        std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+      }
+
       // Move to the start pose
       double start_fraction = move_group.computeCartesianPath(start_pose, eef_step, jump_threshold, trajectory);
 
@@ -414,7 +422,7 @@ private:
     auto request = std::make_shared<ur_slicer_interfaces::srv::HeaterControl::Request>();
     request->heater_on = true;
     request->heater_off = false;
-    request->check_status = false;
+    request->desired_temperature = nozzle_temp_;
     auto response = heater_client_->async_send_request(request);
     // if (rclcpp::spin_until_future_complete(shared_from_this(), response) == rclcpp::FutureReturnCode::SUCCESS)
     // if (true)
@@ -440,7 +448,7 @@ private:
     auto request = std::make_shared<ur_slicer_interfaces::srv::HeaterControl::Request>();
     request->heater_on = false;
     request->heater_off = true;
-    request->check_status = false;
+    request->desired_temperature = nozzle_temp_;
     auto response = heater_client_->async_send_request(request);
     if (rclcpp::spin_until_future_complete(shared_from_this(), response) == rclcpp::FutureReturnCode::SUCCESS)
     {
@@ -452,16 +460,20 @@ private:
       {
         RCLCPP_ERROR(get_logger(), "Heater failed to turn off.");
       }
-      if (response.get()->warning_hot)
-      {
-        RCLCPP_WARN(get_logger(), "Heater turned off. HEATER STILL HOT.");
-      }
     }
     else
     {
       RCLCPP_ERROR(get_logger(), "Heater service failed to respond");
     }
     return;
+  }
+
+  void update_temp(const ur_slicer_interfaces::msg::NozzleTemperature::SharedPtr msg)
+  {
+    // Handle nozzle temperature update
+    RCLCPP_INFO(get_logger(), "Nozzle temperature updated: %d", msg->nozzle_temperature);
+    // Check if the temperature is within the desired range
+    current_temp_ = msg->nozzle_temperature;
   }
 
   // Extruder Control Functions
@@ -474,7 +486,7 @@ private:
     // Wait for the response
     // if (rclcpp::spin_until_future_complete(shared_from_this(), response) == rclcpp::FutureReturnCode::SUCCESS)
     // {
-    //   if (response.get()->motion_allowed)
+    //   if (response.get()->control_confirmed)
     //   {
     //     RCLCPP_INFO(get_logger(), "Extruder turned on.");
     //     return true;
@@ -493,7 +505,7 @@ private:
     // Wait for the response
     if (rclcpp::spin_until_future_complete(shared_from_this(), response) == rclcpp::FutureReturnCode::SUCCESS)
     {
-      if (response.get()->motion_allowed)
+      if (response.get()->control_confirmed)
       {
         RCLCPP_INFO(get_logger(), "Extruder turned off.");
       }
@@ -518,7 +530,6 @@ private:
     print_speed_ = msg->print_speed;
     // Log the settings
     RCLCPP_INFO(get_logger(), "Received slicer settings:");
-    RCLCPP_INFO(get_logger(), "Nozzle Temp: %d", nozzle_temp_);
     RCLCPP_INFO(get_logger(), "Infill Percent: %d", infill_percent_);
     RCLCPP_INFO(get_logger(), "Layer Height: %f", layer_height_);
     RCLCPP_INFO(get_logger(), "Print Speed: %f", print_speed_);
@@ -546,13 +557,16 @@ private:
   // Pubs and subs
   rclcpp::Subscription<ur_slicer_interfaces::msg::SlicerSettings>::SharedPtr slicer_settings_sub_;
   rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr begin_printing_sub_;
-  rclcpp::Publisher<ur_slicer_interfaces::msg::NozzleTemperature>::SharedPtr nozzle_temp_pub_;
+  rclcpp::Subscription<ur_slicer_interfaces::msg::NozzleTemperature>::SharedPtr nozzle_temp_sub_;
 
   // Slicing Settings
   int nozzle_temp_ = 200;     // Default nozzle temperature
   int infill_percent_ = 20;   // Default infill percentage
   float layer_height_ = 0.2;  // Default layer height
   float print_speed_ = 50.0;  // Default print speed
+
+  // Temp Tracker
+  int current_temp_ = 0;  // Current temperature of the nozzle
 
   // Bed settings
   geometry_msgs::msg::Point bed_origin_;

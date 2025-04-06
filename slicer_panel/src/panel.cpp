@@ -13,6 +13,14 @@ Slicer::Slicer(QWidget* parent) : rviz_common::Panel(parent), rclcpp::Node("slic
   QWidget* slicingWidget = new QWidget();
   QVBoxLayout* mainLayout = new QVBoxLayout;
 
+  // Hotend status
+  QHBoxLayout* hotendLayout = new QHBoxLayout;
+  hotend_status_label = new QLabel("Hotend Status: OFF");
+  hotend_status_label->setStyleSheet("color: green");
+  hotendLayout->addWidget(hotend_status_label);
+  mainLayout->addLayout(hotendLayout);
+
+  // File Selection
   QHBoxLayout* layout = new QHBoxLayout;
   file_button_ = new QPushButton("Select File");
   layout->addWidget(file_button_);
@@ -22,6 +30,7 @@ Slicer::Slicer(QWidget* parent) : rviz_common::Panel(parent), rclcpp::Node("slic
 
   mainLayout->addStretch();
 
+  // Slicing preheat and clear workspace buttons
   QVBoxLayout* buttonLayout = new QVBoxLayout;
   slice_button_ = new QPushButton("Slice");
   buttonLayout->addWidget(slice_button_);
@@ -29,9 +38,9 @@ Slicer::Slicer(QWidget* parent) : rviz_common::Panel(parent), rclcpp::Node("slic
   visualize_button_ = new QPushButton("Visualize");
   buttonLayout->addWidget(visualize_button_);
   visualize_button_->setEnabled(false);
-  export_button_ = new QPushButton("Export");
-  buttonLayout->addWidget(export_button_);
-  export_button_->setEnabled(false);
+  preheat_button_ = new QPushButton("Preheat Hotend");
+  buttonLayout->addWidget(preheat_button_);
+  preheat_button_->setEnabled(true);
   clear_ws_button_ = new QPushButton("Clear Workspace");
   buttonLayout->addWidget(clear_ws_button_);
   clear_ws_button_->setEnabled(true);
@@ -52,7 +61,7 @@ Slicer::Slicer(QWidget* parent) : rviz_common::Panel(parent), rclcpp::Node("slic
   // Layer Height
   layer_height_label_ = new QLabel("Layer Height (mm)");
   advancedLayout->addWidget(layer_height_label_);
-  layer_height_input_ = new QLineEdit();
+  layer_height_input_ = new QLineEdit("0.4");
   layer_height_input_->setValidator(decimalValidator);
   connect(layer_height_input_, &QLineEdit::editingFinished, this, &Slicer::validateNumericInput);
   advancedLayout->addWidget(layer_height_input_);
@@ -60,7 +69,7 @@ Slicer::Slicer(QWidget* parent) : rviz_common::Panel(parent), rclcpp::Node("slic
   // Infill Density
   infill_density_label_ = new QLabel("Infill Density (%)");
   advancedLayout->addWidget(infill_density_label_);
-  infill_density_input_ = new QLineEdit();
+  infill_density_input_ = new QLineEdit("100");
   infill_density_input_->setValidator(intValidator);
   connect(infill_density_input_, &QLineEdit::editingFinished, this, &Slicer::validateNumericInput);
   advancedLayout->addWidget(infill_density_input_);
@@ -68,32 +77,32 @@ Slicer::Slicer(QWidget* parent) : rviz_common::Panel(parent), rclcpp::Node("slic
   // Temperature
   temperature_label_ = new QLabel("Temperature (°C)");
   advancedLayout->addWidget(temperature_label_);
-  temperature_input_ = new QLineEdit();
+  temperature_input_ = new QLineEdit("255");
   temperature_input_->setValidator(intValidator);
   connect(temperature_input_, &QLineEdit::editingFinished, this, &Slicer::validateNumericInput);
   advancedLayout->addWidget(temperature_input_);
+
+  // Print Speed
+  print_speed_label_ = new QLabel("Print Speed (mm/s)");
+  advancedLayout->addWidget(print_speed_label_);
+  print_speed_input_ = new QLineEdit("50.0");
+  print_speed_input_->setValidator(decimalValidator);
+  connect(print_speed_input_, &QLineEdit::editingFinished, this, &Slicer::validateNumericInput);
+  advancedLayout->addWidget(print_speed_input_);
 
   // Print Bed Adhesion
   bed_adhesion_label_ = new QLabel("Print Bed Adhesion");
   advancedLayout->addWidget(bed_adhesion_label_);
   bed_adhesion_combo_ = new QComboBox();
-  bed_adhesion_combo_->addItems({"None", "Skirt", "Brim", "Raft"});
+  bed_adhesion_combo_->addItems({ "None", "Skirt", "Brim", "Raft" });
   advancedLayout->addWidget(bed_adhesion_combo_);
 
   // Infill Pattern
   infill_pattern_label_ = new QLabel("Infill Pattern");
   advancedLayout->addWidget(infill_pattern_label_);
   infill_pattern_combo_ = new QComboBox();
-  infill_pattern_combo_->addItems({"Triangle", "Gyroid", "Cubic"});
+  infill_pattern_combo_->addItems({ "Triangle", "Gyroid", "Cubic" });
   advancedLayout->addWidget(infill_pattern_combo_);
-
-  // Print Speed
-  print_speed_label_ = new QLabel("Print Speed (mm/s)");
-  advancedLayout->addWidget(print_speed_label_);
-  print_speed_input_ = new QLineEdit();
-  print_speed_input_->setValidator(decimalValidator);
-  connect(print_speed_input_, &QLineEdit::editingFinished, this, &Slicer::validateNumericInput);
-  advancedLayout->addWidget(print_speed_input_);
 
   settingsTabWidget->setLayout(advancedLayout);
   tabWidget->addTab(slicingWidget, "Slicing");
@@ -106,7 +115,7 @@ Slicer::Slicer(QWidget* parent) : rviz_common::Panel(parent), rclcpp::Node("slic
   connect(file_button_, &QPushButton::clicked, this, &Slicer::selectFileClicked);
   connect(slice_button_, SIGNAL(clicked()), this, SLOT(sliceClicked()));
   connect(visualize_button_, SIGNAL(clicked()), this, SLOT(visualizeClicked()));
-  connect(export_button_, SIGNAL(clicked()), this, SLOT(exportClicked()));
+  connect(preheat_button_, SIGNAL(clicked()), this, SLOT(preheatClicked()));
   connect(clear_ws_button_, SIGNAL(clicked()), this, SLOT(clearWSClicked()));
 }
 
@@ -123,6 +132,9 @@ void Slicer::onInitialize()
   // Printer Manager Action Client
   printer_client_ = rclcpp_action::create_client<ur_slicer_interfaces::action::PreparePrinter>(this, "/ur_printer");
 
+  // Heater Control Service Client
+  heater_client_ = create_client<ur_slicer_interfaces::srv::HeaterControl>("heater_control");
+
   // Settings Publisher
   settings_pub_ = this->create_publisher<ur_slicer_interfaces::msg::SlicerSettings>("/slicer_settings", 1);
 
@@ -130,6 +142,8 @@ void Slicer::onInitialize()
   spin_timer_ = new QTimer(this);
   connect(spin_timer_, &QTimer::timeout, this, &Slicer::spin);
   spin_timer_->start(10);  // Spin every 10ms
+  // Publish default settings
+  publishSettings();
 }
 
 void Slicer::load(const rviz_common::Config& config)
@@ -298,7 +312,7 @@ void Slicer::processSTLFeedback(const visualization_msgs::msg::InteractiveMarker
   }
 }
 
-// UI Callback Functions
+// Main UI Callback Functions
 
 void Slicer::selectFileClicked()
 {
@@ -322,7 +336,6 @@ void Slicer::sliceClicked()
 {
   // Slicing Code
   visualize_button_->setEnabled(true);
-  export_button_->setEnabled(true);
 
   // Publish current settings
   auto settings = ur_slicer_interfaces::msg::SlicerSettings();
@@ -366,10 +379,70 @@ void Slicer::visualizeClicked()
   RCLCPP_INFO(this->get_logger(), "Visualizing motion planning");
 }
 
-void Slicer::exportClicked()
+void Slicer::preheatClicked()
 {
-  // Export however is determined
-  RCLCPP_INFO(this->get_logger(), "Exporting sliced file");
+  // Check Heater Server
+  if (!heater_client_->wait_for_service(std::chrono::seconds(1)))
+  {
+    RCLCPP_ERROR(this->get_logger(), "Heater service not available");
+    return;
+  }
+
+  if (heater_on_)
+  {
+    RCLCPP_INFO(this->get_logger(), "Turning off heater");
+    auto request = std::make_shared<ur_slicer_interfaces::srv::HeaterControl::Request>();
+    request->heater_on = false;
+    request->heater_off = true;
+    request->desired_temperature = 0;
+    auto response = heater_client_->async_send_request(request);
+    if (rclcpp::spin_until_future_complete(this->get_node_base_interface(), response) ==
+        rclcpp::FutureReturnCode::SUCCESS)
+    {
+      if (response.get()->control_confirmed)
+      {
+        heater_on_ = false;
+        RCLCPP_INFO(this->get_logger(), "Heater turned off");
+        hotend_status_label->setText("Hotend Status: OFF");
+        hotend_status_label->setStyleSheet("color: green");
+      }
+      else
+      {
+        RCLCPP_ERROR(this->get_logger(), "Failed to turn off heater");
+      }
+    }
+    else
+    {
+      RCLCPP_ERROR(this->get_logger(), "Heater service failed to respond");
+    }
+  }
+  else
+  {
+    auto request = std::make_shared<ur_slicer_interfaces::srv::HeaterControl::Request>();
+    request->heater_on = true;
+    request->heater_off = false;
+    request->desired_temperature = temperature_input_->text().toInt();
+    auto response = heater_client_->async_send_request(request);
+    if (rclcpp::spin_until_future_complete(this->get_node_base_interface(), response) ==
+        rclcpp::FutureReturnCode::SUCCESS)
+    {
+      if (response.get()->control_confirmed)
+      {
+        heater_on_ = true;
+        RCLCPP_INFO(this->get_logger(), "Heater turned on");
+        hotend_status_label->setText("Hotend Status: ON");
+        hotend_status_label->setStyleSheet("color: red");
+      }
+      else
+      {
+        RCLCPP_ERROR(this->get_logger(), "Failed to turn on heater");
+      }
+    }
+    else
+    {
+      RCLCPP_ERROR(this->get_logger(), "Heater service failed to respond");
+    }
+  }
 }
 
 void Slicer::clearWSClicked()
@@ -380,10 +453,57 @@ void Slicer::clearWSClicked()
   // Disable Buttons
   slice_button_->setEnabled(false);
   visualize_button_->setEnabled(false);
-  export_button_->setEnabled(false);
 
   // Remove interactive marker object to set up creation of new one
   deleteSTLMarker();
+}
+
+// Settings Related Functions
+void Slicer::validateNumericInput()
+{
+  // Validate numeric input
+  bool valid = true;
+  if (layer_height_input_->text().isEmpty() || layer_height_input_->text().toDouble(&valid) <= 0.0 ||
+      layer_height_input_->text().toDouble(&valid) > 1.0)
+  {
+    QMessageBox::warning(this, "Invalid Input", "Layer height must be a positive number less than 1.");
+    layer_height_input_->clear();
+    return;
+  }
+  if (infill_density_input_->text().isEmpty() || infill_density_input_->text().toInt(&valid) < 0 ||
+      infill_density_input_->text().toInt(&valid) > 100)
+  {
+    QMessageBox::warning(this, "Invalid Input", "Infill density must be between 0 and 100.");
+    infill_density_input_->clear();
+    return;
+  }
+  if (temperature_input_->text().isEmpty() || temperature_input_->text().toInt(&valid) <= 0 ||
+      temperature_input_->text().toInt(&valid) > 300)
+  {
+    QMessageBox::warning(this, "Invalid Input", "Temperature must be a positive number less than 300.");
+    temperature_input_->clear();
+    return;
+  }
+  if (print_speed_input_->text().isEmpty() || print_speed_input_->text().toDouble(&valid) <= 0.0 ||
+      print_speed_input_->text().toDouble(&valid) > 100.0)
+  {
+    QMessageBox::warning(this, "Invalid Input", "Print speed must be a positive number less than 100.");
+    print_speed_input_->clear();
+    return;
+  }
+  publishSettings();
+  RCLCPP_INFO(this->get_logger(), "Settings validated and published");
+}
+
+void Slicer::publishSettings()
+{
+  // Publish the settings to the topic
+  ur_slicer_interfaces::msg::SlicerSettings settings;
+  settings.nozzle_temperature = temperature_input_->text().toInt();
+  settings.infill_density = infill_density_input_->text().toInt();
+  settings.layer_height = layer_height_input_->text().toDouble();
+  settings.print_speed = print_speed_input_->text().toDouble();
+  settings_pub_->publish(settings);
 }
 
 // Printing Manager Action Response Functions

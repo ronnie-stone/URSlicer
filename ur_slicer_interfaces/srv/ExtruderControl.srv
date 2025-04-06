@@ -1,4 +1,4 @@
 bool on_extruder
 bool off_extruder
 ---
-bool motion_allowed
+bool control_confirmed
