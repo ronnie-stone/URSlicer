@@ -190,25 +190,26 @@ private:
     else
     {
       RCLCPP_ERROR(get_logger(), "Slicing failed");
+      return;
     }
-
-    // Initialize the MoveIt interface
-
-    // auto move_group_node = std::make_shared<rclcpp::Node>(
-    //     "path_planner",
-    //     rclcpp::NodeOptions().automatically_declare_parameters_from_overrides(true).parameter_overrides(
-    //                         { { "use_sim_time", true } }));
 
     static const std::string PLANNING_GROUP = "ur_manipulator";
 
-    // moveit::planning_interface::MoveGroupInterface move_group(move_group_node, PLANNING_GROUP);
-
     moveit::planning_interface::MoveGroupInterface move_group(this->shared_from_this(), PLANNING_GROUP);
+
+    // Set pllanner pipeline and planner id from node parameter overrides
+
+    // move_group.setPlanningPipelineId(this->get_parameter("move_group.planning_plugin").as_string());
+
+    std::string planid = move_group.getPlanningPipelineId();
+    RCLCPP_INFO(get_logger(), "Planning pipeline id: %s", planid.c_str());
+    std::string plannerid = move_group.getPlannerId();
+    RCLCPP_INFO(get_logger(), "Planner id: %s", plannerid.c_str());
 
     joint_model_group = move_group.getCurrentState()->getJointModelGroup(PLANNING_GROUP);
 
-    RCLCPP_INFO(get_logger(), "Move group interface initialized.");
-    RCLCPP_INFO(get_logger(), "Planning group: %s", PLANNING_GROUP.c_str());
+    // RCLCPP_INFO(get_logger(), "Move group interface initialized.");
+    // RCLCPP_INFO(get_logger(), "Planning group: %s", PLANNING_GROUP.c_str());
 
     // Scale down velocity
     move_group.setMaxVelocityScalingFactor(0.1);

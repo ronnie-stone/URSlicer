@@ -43,6 +43,7 @@ install(TARGETS printing_manager_node
 install(DIRECTORY 
   launch
   config
+  rviz
   DESTINATION share/${PROJECT_NAME}
 )
 

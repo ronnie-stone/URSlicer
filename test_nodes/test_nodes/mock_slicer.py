@@ -40,7 +40,7 @@ class ManagerTestNode(Node):
 
         result = Slicer.Result()
 
-        result.path_list = [test_path]
+        result.path_list = [test_path, test_path, test_path, test_path]
         goal_handle.succeed()
         return result
 

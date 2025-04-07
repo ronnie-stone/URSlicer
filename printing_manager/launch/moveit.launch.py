@@ -31,6 +31,8 @@
 
 import os
 
+from ament_index_python.packages import get_package_share_directory
+
 from launch_ros.actions import Node
 from launch_ros.substitutions import FindPackageShare
 from ur_moveit_config.launch_common import load_yaml
@@ -250,9 +252,10 @@ def launch_setup(context, *args, **kwargs):
     )
 
     # rviz with moveit configuration
-    rviz_config_file = PathJoinSubstitution(
-        [FindPackageShare(moveit_config_package), "rviz", "view_robot.rviz"]
+    rviz_config_file = os.path.join(
+        get_package_share_directory("printing_manager"), "rviz", "ur_slicer.rviz"
     )
+
     rviz_node = Node(
         package="rviz2",
         condition=IfCondition(launch_rviz),

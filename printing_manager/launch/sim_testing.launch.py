@@ -229,67 +229,6 @@ def launch_setup(context, *args, **kwargs):
         "warehouse_host": warehouse_sqlite_path,
     }
 
-    # # Start the actual move_group node/action server
-    # move_group_node = Node(
-    #     package="moveit_ros_move_group",
-    #     executable="move_group",
-    #     output="screen",
-    #     parameters=[
-    #         robot_description,
-    #         robot_description_semantic,
-    #         publish_robot_description_semantic,
-    #         robot_description_kinematics,
-    #         robot_description_planning,
-    #         ompl_planning_pipeline_config,
-    #         trajectory_execution,
-    #         moveit_controllers,
-    #         planning_scene_monitor_parameters,
-    #         {"use_sim_time": use_sim_time},
-    #         warehouse_ros_config,
-    #     ],
-    # )
-
-    # # rviz with moveit configuration
-    # rviz_config_file = PathJoinSubstitution(
-    #     [FindPackageShare(moveit_config_package), "rviz", "view_robot.rviz"]
-    # )
-    # rviz_node = Node(
-    #     package="rviz2",
-    #     condition=IfCondition(launch_rviz),
-    #     executable="rviz2",
-    #     name="rviz2_moveit",
-    #     output="log",
-    #     arguments=["-d", rviz_config_file],
-    #     parameters=[
-    #         robot_description,
-    #         robot_description_semantic,
-    #         ompl_planning_pipeline_config,
-    #         robot_description_kinematics,
-    #         robot_description_planning,
-    #         warehouse_ros_config,
-    #         {
-    #             "use_sim_time": use_sim_time,
-    #         },
-    #     ],
-    # )
-
-    # # Servo node for realtime control
-    # servo_yaml = load_yaml("ur_moveit_config", "config/ur_servo.yaml")
-    # servo_params = {"moveit_servo": servo_yaml}
-    # servo_node = Node(
-    #     package="moveit_servo",
-    #     condition=IfCondition(launch_servo),
-    #     executable="servo_node_main",
-    #     parameters=[
-    #         servo_params,
-    #         robot_description,
-    #         robot_description_semantic,
-    #     ],
-    #     output="screen",
-    # )
-
-    # nodes_to_start = [move_group_node, rviz_node, servo_node]
-
     printing_manager = Node(
         name="printing_manager",
         package="printing_manager",
@@ -310,7 +249,22 @@ def launch_setup(context, *args, **kwargs):
         ],
     )
 
-    nodes_to_start = [printing_manager]
+    sim_io = Node(
+        package="ur_slicer_io_control",
+        executable="io_control_node",
+        name="fake_io_node",
+        output="screen",
+        emulate_tty=True,
+        parameters=[{"simulation": True}],
+    )
+
+    sim_slicer = Node(
+        package="test_nodes",
+        executable="mock_slicer",
+        name="mock_slicer_node",
+    )
+
+    nodes_to_start = [printing_manager, sim_io, sim_slicer]
 
     return nodes_to_start
 
