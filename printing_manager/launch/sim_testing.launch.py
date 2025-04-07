@@ -290,7 +290,7 @@ def launch_setup(context, *args, **kwargs):
 
     # nodes_to_start = [move_group_node, rviz_node, servo_node]
 
-    move_group_demo = Node(
+    printing_manager = Node(
         name="printing_manager",
         package="printing_manager",
         executable="printing_manager_node",
@@ -310,7 +310,7 @@ def launch_setup(context, *args, **kwargs):
         ],
     )
 
-    nodes_to_start = [move_group_demo]
+    nodes_to_start = [printing_manager]
 
     return nodes_to_start
 
