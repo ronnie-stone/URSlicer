@@ -193,33 +193,11 @@ private:
       return;
     }
 
-    static const std::string PLANNING_GROUP = "ur_manipulator";
+    static const std::string PLANNING_GROUP = "ur_arm";
 
     moveit::planning_interface::MoveGroupInterface move_group(this->shared_from_this(), PLANNING_GROUP);
 
-    // Set pllanner pipeline and planner id from node parameter overrides
-
-    // move_group.setPlanningPipelineId(this->get_parameter("move_group.planning_plugin").as_string());
-
-    std::string planid = move_group.getPlanningPipelineId();
-    RCLCPP_INFO(get_logger(), "Planning pipeline id: %s", planid.c_str());
-    std::string plannerid = move_group.getPlannerId();
-    RCLCPP_INFO(get_logger(), "Planner id: %s", plannerid.c_str());
-
     joint_model_group = move_group.getCurrentState()->getJointModelGroup(PLANNING_GROUP);
-
-    // RCLCPP_INFO(get_logger(), "Move group interface initialized.");
-    // RCLCPP_INFO(get_logger(), "Planning group: %s", PLANNING_GROUP.c_str());
-
-    // Scale down velocity
-    move_group.setMaxVelocityScalingFactor(0.1);
-    move_group.setMaxAccelerationScalingFactor(0.1);
-    // Moveit has been initialized
-
-    // move_group.setPlannerId("RRTConnectkConfigDefault");
-
-    // move_group.setTrajectoryFilter("time_optimal_trajectory_generation");
-    // move_group.setPlanningPipelineId("ompl");  // Match RViz pipeline
 
     // Go to home pose
 
@@ -328,7 +306,12 @@ private:
         plan.trajectory_ = trajectory;
 
         RCLCPP_INFO(get_logger(), "Executing Cartesian path (%.0f%% achieved)", fraction * 100);
-        if (extruder_on())
+        extruder_on();
+        while (!extruder_on_)
+        {
+          int test = 0;
+        }
+        if (extruder_on_)
         {
           RCLCPP_INFO(get_logger(), "Extruder turned on.");
           move_group.execute(plan);
@@ -397,7 +380,12 @@ private:
       plan.trajectory_ = trajectory;
 
       RCLCPP_INFO(get_logger(), "Executing Cartesian path (%.0f%% achieved)", fraction * 100);
-      if (extruder_on())
+      extruder_on();
+      while (!extruder_on_)
+      {
+        int test = 0;
+      }
+      if (extruder_on_)
       {
         RCLCPP_INFO(get_logger(), "Extruder turned on.");
         move_group.execute(plan);
@@ -424,24 +412,21 @@ private:
     request->heater_on = true;
     request->heater_off = false;
     request->desired_temperature = nozzle_temp_;
-    auto response = heater_client_->async_send_request(request);
-    // if (rclcpp::spin_until_future_complete(shared_from_this(), response) == rclcpp::FutureReturnCode::SUCCESS)
-    // if (true)
-    // {
-    //   if (response.get()->control_confirmed)
-    //   {
-    //     RCLCPP_INFO(get_logger(), "Heater turned on.");
-    //   }
-    //   else
-    //   {
-    //     RCLCPP_ERROR(get_logger(), "Heater failed to turn on.");
-    //   }
-    // }
-    // else
-    // {
-    //   RCLCPP_ERROR(get_logger(), "Heater service failed to respond");
-    // }
+    auto response = heater_client_->async_send_request(
+        request, std::bind(&PrinterManager::begin_heating_callback, this, std::placeholders::_1));
     return;
+  }
+
+  void begin_heating_callback(const rclcpp::Client<ur_slicer_interfaces::srv::HeaterControl>::SharedFuture& response)
+  {
+    if (response.get()->control_confirmed)
+    {
+      RCLCPP_INFO(get_logger(), "Heater turned on.");
+    }
+    else
+    {
+      RCLCPP_ERROR(get_logger(), "Heater failed to turn on.");
+    }
   }
 
   void stop_heating()
@@ -450,23 +435,21 @@ private:
     request->heater_on = false;
     request->heater_off = true;
     request->desired_temperature = nozzle_temp_;
-    auto response = heater_client_->async_send_request(request);
-    if (rclcpp::spin_until_future_complete(shared_from_this(), response) == rclcpp::FutureReturnCode::SUCCESS)
+    auto response = heater_client_->async_send_request(
+        request, std::bind(&PrinterManager::stop_heating_callback, this, std::placeholders::_1));
+    return;
+  }
+
+  void stop_heating_callback(const rclcpp::Client<ur_slicer_interfaces::srv::HeaterControl>::SharedFuture& response)
+  {
+    if (response.get()->control_confirmed)
     {
-      if (response.get()->control_confirmed)
-      {
-        RCLCPP_INFO(get_logger(), "Heater turned off.");
-      }
-      else
-      {
-        RCLCPP_ERROR(get_logger(), "Heater failed to turn off.");
-      }
+      RCLCPP_INFO(get_logger(), "Heater turned off.");
     }
     else
     {
-      RCLCPP_ERROR(get_logger(), "Heater service failed to respond");
+      RCLCPP_ERROR(get_logger(), "Heater failed to turn off.");
     }
-    return;
   }
 
   void update_temp(const ur_slicer_interfaces::msg::NozzleTemperature::SharedPtr msg)
@@ -478,23 +461,27 @@ private:
   }
 
   // Extruder Control Functions
-  bool extruder_on()
+  void extruder_on()
   {
     auto request = std::make_shared<ur_slicer_interfaces::srv::ExtruderControl::Request>();
     request->on_extruder = true;
     request->off_extruder = false;
-    auto response = extruder_client_->async_send_request(request);
-    // Wait for the response
-    // if (rclcpp::spin_until_future_complete(shared_from_this(), response) == rclcpp::FutureReturnCode::SUCCESS)
-    // {
-    //   if (response.get()->control_confirmed)
-    //   {
-    //     RCLCPP_INFO(get_logger(), "Extruder turned on.");
-    //     return true;
-    //   }
-    // }
-    // RCLCPP_ERROR(get_logger(), "Extruder failed to turn on.");
-    return true;
+    auto response = extruder_client_->async_send_request(
+        request, std::bind(&PrinterManager::extruder_on_callback, this, std::placeholders::_1));
+    return;
+  }
+
+  void extruder_on_callback(const rclcpp::Client<ur_slicer_interfaces::srv::ExtruderControl>::SharedFuture& response)
+  {
+    if (response.get()->control_confirmed)
+    {
+      RCLCPP_INFO(get_logger(), "Extruder turned on.");
+      extruder_on_ = true;
+    }
+    else
+    {
+      RCLCPP_ERROR(get_logger(), "Extruder failed to turn on.");
+    }
   }
 
   void extruder_off()
@@ -502,22 +489,21 @@ private:
     auto request = std::make_shared<ur_slicer_interfaces::srv::ExtruderControl::Request>();
     request->on_extruder = false;
     request->on_extruder = true;
-    auto response = extruder_client_->async_send_request(request);
-    // Wait for the response
-    if (rclcpp::spin_until_future_complete(shared_from_this(), response) == rclcpp::FutureReturnCode::SUCCESS)
+    auto response = extruder_client_->async_send_request(
+        request, std::bind(&PrinterManager::extruder_off_callback, this, std::placeholders::_1));
+    return;
+  }
+
+  void extruder_off_callback(const rclcpp::Client<ur_slicer_interfaces::srv::ExtruderControl>::SharedFuture& response)
+  {
+    if (response.get()->control_confirmed)
     {
-      if (response.get()->control_confirmed)
-      {
-        RCLCPP_INFO(get_logger(), "Extruder turned off.");
-      }
-      else
-      {
-        RCLCPP_ERROR(get_logger(), "Extruder failed to turn off.");
-      }
+      RCLCPP_INFO(get_logger(), "Extruder turned off.");
+      extruder_on_ = false;
     }
     else
     {
-      RCLCPP_ERROR(get_logger(), "Extruder service failed to respond");
+      RCLCPP_ERROR(get_logger(), "Extruder failed to turn off.");
     }
   }
 
@@ -547,6 +533,7 @@ private:
 
   // Member variables
 
+  // MoveIt variables
   const moveit::core::JointModelGroup* joint_model_group;
 
   // Action server
@@ -567,7 +554,8 @@ private:
   float print_speed_ = 50.0;  // Default print speed
 
   // Temp Tracker
-  int current_temp_ = 0;  // Current temperature of the nozzle
+  int current_temp_ = 0;      // Current temperature of the nozzle
+  bool extruder_on_ = false;  // Extruder state
 
   // Bed settings
   geometry_msgs::msg::Point bed_origin_;
