@@ -1,0 +1,25 @@
+moveit_setup_assistant_config:
+  urdf:
+    package: ur_printer_description
+    relative_path: urdf/ur_printer.urdf.xacro
+  srdf:
+    relative_path: config/ur5e_printer.srdf
+  package_settings:
+    author_name: John Lyle
+    author_email: johnlyleiv@gmail.com
+    generated_timestamp: 1743999357
+  control_xacro:
+    command:
+      - position
+    state:
+      - position
+      - velocity
+  modified_urdf:
+    xacros:
+      - control_xacro
+  control_xacro:
+    command:
+      - position
+    state:
+      - position
+      - velocity
