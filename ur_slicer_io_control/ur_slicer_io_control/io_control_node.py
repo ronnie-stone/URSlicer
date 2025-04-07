@@ -78,7 +78,7 @@ class URExtruderInterface(Node):
         self.get_logger().info(
             f"Published extruder temperature: {self.latest_temperature:.2f} °C"
         )
-        if self.heater_on and not self.maintain_heater and not self.simulation:
+        if self.heater_on and not self.maintain_heater:
             self.set_heater(False)
             self.heater_on = False
 
@@ -97,6 +97,7 @@ class URExtruderInterface(Node):
             if target_state != self.heater_on:
                 self.set_heater(target_state)
                 self.heater_on = target_state
+        return
 
     # ------------------ Service Handlers --------------------
     def handle_heater_control(self, request, response):
