@@ -364,12 +364,12 @@ void Slicer::sliceClicked()
       std::bind(&Slicer::slicing_feedback, this, std::placeholders::_1, std::placeholders::_2);
   send_goal_options.result_callback = std::bind(&Slicer::slicing_result, this, std::placeholders::_1);
   auto result_future = printer_client_->async_send_goal(goal, send_goal_options);
-  if (rclcpp::spin_until_future_complete(this->get_node_base_interface(), result_future) !=
-      rclcpp::FutureReturnCode::SUCCESS)
-  {
-    RCLCPP_ERROR(this->get_logger(), "Failed to send slicing request");
-    return;
-  }
+  // if (rclcpp::spin_until_future_complete(this->get_node_base_interface(), result_future) !=
+  //     rclcpp::FutureReturnCode::SUCCESS)
+  // {
+  //   RCLCPP_ERROR(this->get_logger(), "Failed to send slicing request");
+  //   return;
+  // }
   RCLCPP_INFO(this->get_logger(), "Slicing request sent");
 }
 

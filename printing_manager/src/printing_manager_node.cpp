@@ -12,6 +12,7 @@
 #include <moveit/trajectory_processing/time_optimal_trajectory_generation.h>
 #include <moveit/robot_model_loader/robot_model_loader.h>
 #include <moveit/planning_scene_interface/planning_scene_interface.h>
+#include <moveit_visual_tools/moveit_visual_tools.h>
 #include <geometry_msgs/msg/pose.hpp>
 #include <std_msgs/msg/bool.hpp>
 
@@ -193,9 +194,22 @@ private:
       return;
     }
 
+    namespace rvt = rviz_visual_tools;
+
+    rclcpp::NodeOptions node_options;
+    node_options.automatically_declare_parameters_from_overrides(true).parameter_overrides(
+        { { "use_sim_time", true } });
+    auto move_group_node = rclcpp::Node::make_shared("printer_move_group", node_options);
+
+    // We spin up a SingleThreadedExecutor for the current state monitor to get information
+    // about the robot's state.
+    rclcpp::executors::SingleThreadedExecutor executor;
+    executor.add_node(move_group_node);
+    std::thread([&executor]() { executor.spin(); }).detach();
+
     static const std::string PLANNING_GROUP = "ur_arm";
 
-    moveit::planning_interface::MoveGroupInterface move_group(this->shared_from_this(), PLANNING_GROUP);
+    moveit::planning_interface::MoveGroupInterface move_group(move_group_node, PLANNING_GROUP);
 
     joint_model_group = move_group.getCurrentState()->getJointModelGroup(PLANNING_GROUP);
 
@@ -216,25 +230,7 @@ private:
 
     moveit::planning_interface::MoveGroupInterface::Plan current_plan;
 
-    // get pipeline planner id
-    std::string planner_id = move_group.getPlannerId();
-    RCLCPP_INFO(get_logger(), "Current planner id: %s", planner_id.c_str());
-
-    // moveit::core::RobotStatePtr current_state = *move_group.getCurrentState();
-    // // log current state with rclcpp
-    // RCLCPP_INFO(get_logger(), "Current state: %s",
-    //             current_state->getJointModelGroup(PLANNING_GROUP)->getName().c_str());
-
-    // move_group.setStartState(*move_group.getCurrentState());
-
-    moveit::core::RobotStatePtr current_state = move_group.getCurrentState();
-    RCLCPP_INFO(get_logger(), "Current state: %s",
-                current_state->getJointModelGroup(PLANNING_GROUP)->getName().c_str());
-    // show state information
-
-    // move_group.setStartState(current_state);
     move_group.setJointValueTarget(home_pose);
-    // move_group.setPoseTarget(home_pose);
 
     bool success = (move_group.plan(current_plan) == moveit::core::MoveItErrorCode::SUCCESS);
 
@@ -248,6 +244,11 @@ private:
       RCLCPP_ERROR(get_logger(), "Failed to move to home pose");
       return;
     }
+
+    moveit_visual_tools::MoveItVisualTools visual_tools(move_group_node, "base_link", "stl_markers",
+                                                        move_group.getRobotModel());
+
+    visual_tools.loadRemoteControl();
 
     // Handle the result
     auto sliced_list = result.result->path_list;
@@ -305,13 +306,12 @@ private:
       {
         plan.trajectory_ = trajectory;
 
-        RCLCPP_INFO(get_logger(), "Executing Cartesian path (%.0f%% achieved)", fraction * 100);
+        // Use RVIZ visual tools gui to confirm path
+        visual_tools.prompt("Press 'next' in the RvizVisualToolsGui window to continue the demo");
+
         extruder_on();
-        while (!extruder_on_)
-        {
-          int test = 0;
-        }
-        if (extruder_on_)
+        // if (extruder_on_)
+        if (true)
         {
           RCLCPP_INFO(get_logger(), "Extruder turned on.");
           move_group.execute(plan);
@@ -326,130 +326,8 @@ private:
       {
         RCLCPP_ERROR(get_logger(), "Cartesian path planning failed (%.0f%% coverage)", fraction * 100);
       }
-      // First loop through Path objects
-      // print_path(move_group, path);  // Now passing Path instead of Point
     }
-  }
-
-  void print_path(moveit::planning_interface::MoveGroupInterface& move_group,
-                  const ur_slicer_interfaces::msg::Path& path)
-  {
-    moveit_msgs::msg::RobotTrajectory trajectory;
-    moveit::planning_interface::MoveGroupInterface::Plan plan;
-
-    // Loop through the points in the path
-    std::vector<geometry_msgs::msg::Pose> waypoints;
-
-    for (const auto& point : path.path)
-    {
-      // Create a Pose object for the point
-      geometry_msgs::msg::Pose target_pose;
-      target_pose.position.x = point.x + bed_origin_.x;
-      target_pose.position.y = point.y + bed_origin_.y;
-      target_pose.position.z = point.z + bed_origin_.z;
-      target_pose.orientation.w = 0.0;
-      target_pose.orientation.x = 0.707;
-      target_pose.orientation.y = 0.0;
-      target_pose.orientation.z = 0.707;
-
-      waypoints.push_back(target_pose);
-    }
-
-    std::vector<geometry_msgs::msg::Pose> start_pose = { waypoints.front() };
-
-    RCLCPP_INFO(get_logger(), "Adding point to waypoints: x: %f, y: %f, z: %f", start_pose[0].position.x,
-                start_pose[0].position.y, start_pose[0].position.z);
-
-    // Move to the start pose
-    double start_fraction = move_group.computeCartesianPath(start_pose, eef_step, jump_threshold, trajectory);
-
-    if (start_fraction < 0.99)
-    {
-      RCLCPP_ERROR(get_logger(), "Failed to move to start pose (%.0f%% coverage)", start_fraction * 100);
-      // return;
-    }
-
-    // Plan motion
-
-    double fraction = move_group.computeCartesianPath(waypoints, eef_step, jump_threshold, trajectory);
-    RCLCPP_INFO(get_logger(), "Visualizing plan 4 (Cartesian path) (%.2f%% achieved)", fraction * 100.0);
-
-    // Execute if successful and nozzle turns on
-    if (fraction >= 0.99)
-    {
-      plan.trajectory_ = trajectory;
-
-      RCLCPP_INFO(get_logger(), "Executing Cartesian path (%.0f%% achieved)", fraction * 100);
-      extruder_on();
-      while (!extruder_on_)
-      {
-        int test = 0;
-      }
-      if (extruder_on_)
-      {
-        RCLCPP_INFO(get_logger(), "Extruder turned on.");
-        move_group.execute(plan);
-      }
-      else
-      {
-        RCLCPP_ERROR(get_logger(), "Failed to turn on extruder.");
-        return;
-      }
-    }
-    else
-    {
-      RCLCPP_ERROR(get_logger(), "Cartesian path planning failed (%.0f%% coverage)", fraction * 100);
-    }
-
     return;
-  }
-
-  // Heater Control Functions
-
-  void begin_heating()
-  {
-    auto request = std::make_shared<ur_slicer_interfaces::srv::HeaterControl::Request>();
-    request->heater_on = true;
-    request->heater_off = false;
-    request->desired_temperature = nozzle_temp_;
-    auto response = heater_client_->async_send_request(
-        request, std::bind(&PrinterManager::begin_heating_callback, this, std::placeholders::_1));
-    return;
-  }
-
-  void begin_heating_callback(const rclcpp::Client<ur_slicer_interfaces::srv::HeaterControl>::SharedFuture& response)
-  {
-    if (response.get()->control_confirmed)
-    {
-      RCLCPP_INFO(get_logger(), "Heater turned on.");
-    }
-    else
-    {
-      RCLCPP_ERROR(get_logger(), "Heater failed to turn on.");
-    }
-  }
-
-  void stop_heating()
-  {
-    auto request = std::make_shared<ur_slicer_interfaces::srv::HeaterControl::Request>();
-    request->heater_on = false;
-    request->heater_off = true;
-    request->desired_temperature = nozzle_temp_;
-    auto response = heater_client_->async_send_request(
-        request, std::bind(&PrinterManager::stop_heating_callback, this, std::placeholders::_1));
-    return;
-  }
-
-  void stop_heating_callback(const rclcpp::Client<ur_slicer_interfaces::srv::HeaterControl>::SharedFuture& response)
-  {
-    if (response.get()->control_confirmed)
-    {
-      RCLCPP_INFO(get_logger(), "Heater turned off.");
-    }
-    else
-    {
-      RCLCPP_ERROR(get_logger(), "Heater failed to turn off.");
-    }
   }
 
   void update_temp(const ur_slicer_interfaces::msg::NozzleTemperature::SharedPtr msg)
@@ -460,51 +338,99 @@ private:
     current_temp_ = msg->nozzle_temperature;
   }
 
-  // Extruder Control Functions
+  // Heater Control Functions
+
+  void begin_heating()
+  {
+    auto request = std::make_shared<ur_slicer_interfaces::srv::HeaterControl::Request>();
+    request->heater_on = true;
+    request->heater_off = false;
+    request->desired_temperature = nozzle_temp_;
+
+    heater_client_->async_send_request(
+        request, [this](rclcpp::Client<ur_slicer_interfaces::srv::HeaterControl>::SharedFuture future) {
+          try
+          {
+            auto response = future.get();
+            if (response->control_confirmed)
+            {
+              RCLCPP_INFO(get_logger(), "MAN: Heater turned on.");
+            }
+            else
+            {
+              RCLCPP_ERROR(get_logger(), "MAN: Heater failed to turn on.");
+            }
+          }
+          catch (const std::exception& e)
+          {
+            RCLCPP_ERROR(get_logger(), "MAN: Service call failed: %s", e.what());
+          }
+        });
+  }
+
+  void stop_heating()
+  {
+    auto request = std::make_shared<ur_slicer_interfaces::srv::HeaterControl::Request>();
+    request->heater_on = false;
+    request->heater_off = true;
+    request->desired_temperature = nozzle_temp_;
+
+    heater_client_->async_send_request(
+        request, [this](rclcpp::Client<ur_slicer_interfaces::srv::HeaterControl>::SharedFuture future) {
+          try
+          {
+            auto response = future.get();
+            if (response->control_confirmed)
+            {
+              RCLCPP_INFO(get_logger(), "MAN: Heater turned off.");
+            }
+            else
+            {
+              RCLCPP_ERROR(get_logger(), "MAN: Heater failed to turn off.");
+            }
+          }
+          catch (const std::exception& e)
+          {
+            RCLCPP_ERROR(get_logger(), "MAN: Service call failed: %s", e.what());
+          }
+        });
+  }
+
   void extruder_on()
   {
     auto request = std::make_shared<ur_slicer_interfaces::srv::ExtruderControl::Request>();
     request->on_extruder = true;
     request->off_extruder = false;
-    auto response = extruder_client_->async_send_request(
-        request, std::bind(&PrinterManager::extruder_on_callback, this, std::placeholders::_1));
-    return;
-  }
 
-  void extruder_on_callback(const rclcpp::Client<ur_slicer_interfaces::srv::ExtruderControl>::SharedFuture& response)
-  {
-    if (response.get()->control_confirmed)
-    {
-      RCLCPP_INFO(get_logger(), "Extruder turned on.");
-      extruder_on_ = true;
-    }
-    else
-    {
-      RCLCPP_ERROR(get_logger(), "Extruder failed to turn on.");
-    }
+    auto future = extruder_client_->async_send_request(request);
   }
 
   void extruder_off()
   {
     auto request = std::make_shared<ur_slicer_interfaces::srv::ExtruderControl::Request>();
     request->on_extruder = false;
-    request->on_extruder = true;
-    auto response = extruder_client_->async_send_request(
-        request, std::bind(&PrinterManager::extruder_off_callback, this, std::placeholders::_1));
-    return;
-  }
+    request->off_extruder = true;
 
-  void extruder_off_callback(const rclcpp::Client<ur_slicer_interfaces::srv::ExtruderControl>::SharedFuture& response)
-  {
-    if (response.get()->control_confirmed)
-    {
-      RCLCPP_INFO(get_logger(), "Extruder turned off.");
-      extruder_on_ = false;
-    }
-    else
-    {
-      RCLCPP_ERROR(get_logger(), "Extruder failed to turn off.");
-    }
+    extruder_client_->async_send_request(
+        request, [this](rclcpp::Client<ur_slicer_interfaces::srv::ExtruderControl>::SharedFuture future) {
+          try
+          {
+            auto response = future.get();
+            if (response->control_confirmed)
+            {
+              RCLCPP_INFO(get_logger(), "MAN: Extruder turned off.");
+              extruder_on_ = false;
+            }
+            else
+            {
+              RCLCPP_ERROR(get_logger(), "MAN: Extruder failed to turn off.");
+            }
+          }
+          catch (const std::exception& e)
+          {
+            RCLCPP_ERROR(get_logger(), "MAN: Service call failed: %s", e.what());
+          }
+        });
   }
 
   // Settings Functions
@@ -535,6 +461,7 @@ private:
 
   // MoveIt variables
   const moveit::core::JointModelGroup* joint_model_group;
+  bool mgi_initialized = false;
 
   // Action server
   rclcpp_action::Server<ur_slicer_interfaces::action::PreparePrinter>::SharedPtr printer_server_;
