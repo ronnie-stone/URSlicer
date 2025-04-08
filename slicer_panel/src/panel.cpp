@@ -130,7 +130,7 @@ void Slicer::onInitialize()
       "/bed_corners", 1, std::bind(&Slicer::rectangleBedCreation, this, std::placeholders::_1));
 
   // Printer Manager Action Client
-  printer_client_ = rclcpp_action::create_client<ur_slicer_interfaces::action::PreparePrinter>(this, "/ur_printer");
+  printer_client_ = rclcpp_action::create_client<ur_slicer_interfaces::action::PreparePrinter>(this, "/ur5e_printer");
 
   // Heater Control Service Client
   heater_client_ = create_client<ur_slicer_interfaces::srv::HeaterControl>("heater_control");
