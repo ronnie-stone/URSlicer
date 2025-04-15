@@ -196,23 +196,26 @@ void PrinterManagerComponent::slicing_result(
   moveit::planning_interface::MoveGroupInterface move_group(this->shared_from_this(), PLANNING_GROUP);
   joint_model_group = move_group.getCurrentState()->getJointModelGroup(PLANNING_GROUP);
 
+  move_group.setPlanningPipelineId("pilz_industrial_motion_planner");
+  move_group.setPlannerId("LIN");
+
   // Go to home pose
-  bed_origin_.x = 0.5;
-  bed_origin_.y = 0.0;
+  bed_origin_.x = 0.0;
+  bed_origin_.y = -0.50;
   bed_origin_.z = -0.25;
 
   geometry_msgs::msg::Pose home_pose;
   home_pose.position.x = bed_origin_.x;
   home_pose.position.y = bed_origin_.y;
   home_pose.position.z = bed_origin_.z + 0.25;
-  home_pose.orientation.w = 0.5;
-  home_pose.orientation.x = 0.5;
-  home_pose.orientation.y = 0.50;
-  home_pose.orientation.z = 0.50;
+  home_pose.orientation.w = 0.7071068;
+  home_pose.orientation.x = 0.7071068;
+  home_pose.orientation.y = 0.0;
+  home_pose.orientation.z = 0.0;
 
   moveit::planning_interface::MoveGroupInterface::Plan current_plan;
 
-  move_group.setJointValueTarget(home_pose);
+  move_group.setPoseTarget(home_pose);
 
   bool success = (move_group.plan(current_plan) == moveit::core::MoveItErrorCode::SUCCESS);
 
@@ -223,8 +226,20 @@ void PrinterManagerComponent::slicing_result(
   }
   else
   {
-    RCLCPP_ERROR(get_logger(), "Failed to move to home pose");
-    return;
+    RCLCPP_ERROR(get_logger(), "Failed to move to home pose in LIN planner, attempting PTP");
+    move_group.setPlannerId("PTP");
+    move_group.setPoseTarget(home_pose);
+    success = (move_group.plan(current_plan) == moveit::core::MoveItErrorCode::SUCCESS);
+    if (success)
+    {
+      move_group.execute(current_plan);
+      RCLCPP_INFO(get_logger(), "Moving to home pose");
+    }
+    else
+    {
+      RCLCPP_ERROR(get_logger(), "Failed to move to home pose in PTP planner");
+      return;
+    }
   }
 
   namespace rvt = rviz_visual_tools;
@@ -250,10 +265,10 @@ void PrinterManagerComponent::slicing_result(
       target_pose.position.x = point.x + bed_origin_.x;
       target_pose.position.y = point.y + bed_origin_.y;
       target_pose.position.z = point.z + bed_origin_.z;
-      target_pose.orientation.w = 0.5;
-      target_pose.orientation.x = 0.5;
-      target_pose.orientation.y = 0.5;
-      target_pose.orientation.z = 0.5;
+      target_pose.orientation.w = 0.7071068;
+      target_pose.orientation.x = 0.7071068;
+      target_pose.orientation.y = 0.0;
+      target_pose.orientation.z = 0.0;
 
       RCLCPP_INFO(get_logger(), "Adding point to waypoints: x: %f, y: %f, z: %f", target_pose.position.x,
                   target_pose.position.y, target_pose.position.z);
