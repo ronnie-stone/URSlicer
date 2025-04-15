@@ -109,7 +109,7 @@ private:
 
   // Moveit Settings
   const double jump_threshold = 0.0;
-  const double eef_step = 0.01;
+  const double eef_step = 0.0001;
 
   // Callback groups for multithreading
   rclcpp::CallbackGroup::SharedPtr slicing_callback_group_;

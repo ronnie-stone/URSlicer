@@ -205,9 +205,9 @@ void PrinterManagerComponent::slicing_result(
   home_pose.position.x = bed_origin_.x;
   home_pose.position.y = bed_origin_.y;
   home_pose.position.z = bed_origin_.z + 0.25;
-  home_pose.orientation.w = -0.5;
+  home_pose.orientation.w = 0.5;
   home_pose.orientation.x = 0.5;
-  home_pose.orientation.y = -0.50;
+  home_pose.orientation.y = 0.50;
   home_pose.orientation.z = 0.50;
 
   moveit::planning_interface::MoveGroupInterface::Plan current_plan;
@@ -250,9 +250,9 @@ void PrinterManagerComponent::slicing_result(
       target_pose.position.x = point.x + bed_origin_.x;
       target_pose.position.y = point.y + bed_origin_.y;
       target_pose.position.z = point.z + bed_origin_.z;
-      target_pose.orientation.w = -0.5;
+      target_pose.orientation.w = 0.5;
       target_pose.orientation.x = 0.5;
-      target_pose.orientation.y = -0.5;
+      target_pose.orientation.y = 0.5;
       target_pose.orientation.z = 0.5;
 
       RCLCPP_INFO(get_logger(), "Adding point to waypoints: x: %f, y: %f, z: %f", target_pose.position.x,

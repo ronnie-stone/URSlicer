@@ -295,4 +295,34 @@
     <parent link="ur5e_flange"/>
     <child link="ur5e_tool0"/>
   </joint>
+  <joint name="end_effector_joint" type="fixed">
+    <parent link="ur5e_tool0"/>
+    <child link="end_effector"/>
+    <!-- Adjust position and orientation as needed -->
+    <origin rpy="0 0 0" xyz="0 0 0"/>
+  </joint>
+  <!-- Define the end effector link with geometries -->
+  <link name="end_effector">
+    <visual>
+      <geometry>
+        <!-- Path to the visual mesh -->
+        <mesh filename="package://ur_printer_description/meshes/Toolhead2.stl"/>
+      </geometry>
+      <!-- You can add material/color here if needed -->
+    </visual>
+    <collision>
+      <geometry>
+        <!-- Path to the collision mesh -->
+        <mesh filename="package://ur_printer_description/meshes/Toolhead2.stl"/>
+      </geometry>
+    </collision>
+  </link>
+  <!-- Define TCP (Tool Center Point) frame -->
+  <joint name="tcp_joint" type="fixed">
+    <!-- Adjust TCP position as needed, this is the point used for planning -->
+    <origin rpy="0 0 0" xyz="0 0 0.05"/>
+    <parent link="end_effector"/>
+    <child link="tcp"/>
+  </joint>
+  <link name="tcp"/>
 </robot>
