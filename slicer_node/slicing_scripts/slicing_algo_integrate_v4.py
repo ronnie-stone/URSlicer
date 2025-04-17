@@ -18,8 +18,9 @@ class STL2Motion():
     """Fill in comment"""
     def __init__(self, filepath_to_stl, quaternion):
         self.filepath = filepath_to_stl
-        self.input_quaternion = quaternion       
-    def generate_robot_points():
+        self.input_quaternion = quaternion  
+             
+    def generate_robot_points(self):
         """Fill in comment"""
         # Example function
 
