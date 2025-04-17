@@ -17,8 +17,8 @@ class URExtruderInterface(Node):
         self.simulation = self.get_parameter("simulation").value
 
         # Hardware configuration
-        self.HEATER_DO_PIN = SetIO.Request.PIN_TOOL_DOUT0
-        self.EXTRUDER_DO_PIN = SetIO.Request.PIN_TOOL_DOUT1
+        self.HEATER_DO_PIN = SetIO.Request.PIN_TOOL_DOUT1
+        self.EXTRUDER_DO_PIN = SetIO.Request.PIN_TOOL_DOUT0
 
         # State management
         self.latest_temperature = 0.0
@@ -85,8 +85,8 @@ class URExtruderInterface(Node):
     # ------------------ Subscription Callback --------------------
     def tool_data_callback(self, msg: ToolDataMsg):
         """Process tool data and manage heater state"""
-        analog_signal = msg.analog_input2
-        self.latest_temperature = int((analog_signal / 10.0) * 300.0)
+        analog_signal = msg.analog_input3
+        self.latest_temperature = int((analog_signal) * 100.0)
 
         if self.simulation:
             self.latest_temperature = int(self.desired_temperature)

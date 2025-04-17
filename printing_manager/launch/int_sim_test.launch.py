@@ -51,7 +51,7 @@ def launch_setup(context, *args, **kwargs):
         name="fake_io_node",
         output="screen",
         emulate_tty=True,
-        parameters=[{"simulation": True}],
+        parameters=[{"simulation": False}],
     )
 
     # Mock slicer node

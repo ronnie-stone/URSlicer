@@ -200,9 +200,9 @@ void PrinterManagerComponent::slicing_result(
   move_group.setPlannerId("LIN");
 
   // Go to home pose
-  bed_origin_.x = 0.0;
-  bed_origin_.y = -0.50;
-  bed_origin_.z = -0.25;
+  bed_origin_.x = -0.1;
+  bed_origin_.y = -0.55;
+  bed_origin_.z = -0.415;
 
   geometry_msgs::msg::Pose home_pose;
   home_pose.position.x = bed_origin_.x;
@@ -312,6 +312,7 @@ void PrinterManagerComponent::slicing_result(
       {
         RCLCPP_INFO(get_logger(), "Extruder turned on.");
         move_group.execute(plan);
+        extruder_off();
       }
       else
       {
@@ -430,26 +431,7 @@ void PrinterManagerComponent::extruder_off()
   request->on_extruder = false;
   request->off_extruder = true;
 
-  extruder_client_->async_send_request(
-      request, [this](rclcpp::Client<ur_slicer_interfaces::srv::ExtruderControl>::SharedFuture future) {
-        try
-        {
-          auto response = future.get();
-          if (response->control_confirmed)
-          {
-            RCLCPP_INFO(get_logger(), "MAN: Extruder turned off.");
-            extruder_on_ = false;
-          }
-          else
-          {
-            RCLCPP_ERROR(get_logger(), "MAN: Extruder failed to turn off.");
-          }
-        }
-        catch (const std::exception& e)
-        {
-          RCLCPP_ERROR(get_logger(), "MAN: Service call failed: %s", e.what());
-        }
-      });
+  auto future = extruder_client_->async_send_request(request);
 }
 
 // Settings Functions
