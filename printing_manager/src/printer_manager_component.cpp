@@ -55,6 +55,11 @@ void PrinterManagerComponent::initialize_communications()
       "begin_printing", 10, std::bind(&PrinterManagerComponent::begin_printing_callback, this, std::placeholders::_1),
       settings_options);
 
+  // Subscriber for bed height with a callback group
+  bed_height_sub_ = create_subscription<std_msgs::msg::Float32>(
+      "bed_height", 10, std::bind(&PrinterManagerComponent::bed_height_callback, this, std::placeholders::_1),
+      settings_options);
+
   // Action client for slicing with a callback group
   slicer_client_ = rclcpp_action::create_client<ur_slicer_interfaces::action::Slicer>(this, "slicer_action",
                                                                                       slicing_callback_group_);
@@ -456,6 +461,13 @@ void PrinterManagerComponent::begin_printing_callback(const std_msgs::msg::Bool:
     RCLCPP_INFO(get_logger(), "Begin printing signal received.");
     // Start the printing process
   }
+}
+
+void PrinterManagerComponent::bed_height_callback(const std_msgs::msg::Float32::SharedPtr msg)
+{
+  // Handle bed height update
+  bed_height_ = msg->data;
+  RCLCPP_INFO(get_logger(), "Bed height updated: %f", bed_height_);
 }
 
 }  // namespace printer_manager

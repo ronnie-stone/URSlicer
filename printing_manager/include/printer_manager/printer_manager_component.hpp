@@ -19,6 +19,8 @@
 #include <geometry_msgs/msg/pose.hpp>
 #include <std_msgs/msg/bool.hpp>
 
+#include "std_msgs/msg/float32.hpp"
+
 #include "ur_slicer_interfaces/action/prepare_printer.hpp"
 #include "ur_slicer_interfaces/action/slicer.hpp"
 #include "ur_slicer_interfaces/msg/nozzle_temperature.hpp"
@@ -74,6 +76,7 @@ private:
   // Settings Functions
   void slicer_settings_callback(const ur_slicer_interfaces::msg::SlicerSettings::SharedPtr msg);
   void begin_printing_callback(const std_msgs::msg::Bool::SharedPtr msg);
+  void bed_height_callback(const std_msgs::msg::Float32::SharedPtr msg);
 
   // Member variables
   // MoveIt variables
@@ -93,6 +96,7 @@ private:
   rclcpp::Subscription<ur_slicer_interfaces::msg::SlicerSettings>::SharedPtr slicer_settings_sub_;
   rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr begin_printing_sub_;
   rclcpp::Subscription<ur_slicer_interfaces::msg::NozzleTemperature>::SharedPtr nozzle_temp_sub_;
+  rclcpp::Subscription<std_msgs::msg::Float32>::SharedPtr bed_height_sub_;
 
   // Slicing Settings
   int nozzle_temp_ = 200;     // Default nozzle temperature
@@ -106,6 +110,7 @@ private:
 
   // Bed settings
   geometry_msgs::msg::Point bed_origin_;
+  float bed_height_ = 0.0;  // Height of the bed
 
   // Moveit Settings
   const double jump_threshold = 0.0;

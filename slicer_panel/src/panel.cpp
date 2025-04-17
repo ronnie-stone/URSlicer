@@ -353,8 +353,7 @@ void Slicer::sliceClicked()
   }
   RCLCPP_INFO(this->get_logger(), "Printer action server available");
   auto goal = ur_slicer_interfaces::action::PreparePrinter::Goal();
-  // goal.filepath = path_label_->text().toStdString();
-  goal.filepath = "testing";
+  goal.filepath = path_label_->text().toStdString();
   goal.preheat = true;
   goal.origin_pose = geometry_msgs::msg::Pose();
 
