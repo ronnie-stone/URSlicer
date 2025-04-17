@@ -8,9 +8,9 @@ from ur_slicer_interfaces.srv import ExtruderControl, HeaterControl
 from geometry_msgs.msg import Pose, Point
 
 
-class ManagerTestNode(Node):
+class SlicerNode(Node):
     def __init__(self):
-        super().__init__("mock_slicer_node")
+        super().__init__("slicer_node")
 
         # Action server for PreparePrinter
         self.prepare_printer_server = ActionServer(
@@ -20,13 +20,14 @@ class ManagerTestNode(Node):
             execute_callback=self.prepare_printer_execute_callback,
         )
 
-        self.get_logger().info("Mock Slicer initialized.")
+        self.get_logger().info("Slicer initialized.")
 
     def prepare_printer_execute_callback(self, goal_handle):
         self.get_logger().info(
             f"Received PreparePrinter goal with filepath: {goal_handle.request.filepath}"
         )
 
+        # TODO: Fill in Aditya code.
         # Create a test square
         point_1 = Point(x=0.0, y=0.05, z=0.0)
         point_2 = Point(x=0.05, y=0.05, z=0.0)
@@ -41,13 +42,15 @@ class ManagerTestNode(Node):
         result = Slicer.Result()
 
         result.path_list = [test_path, test_path, test_path, test_path]
+        # ======================================================================
+
         goal_handle.succeed()
         return result
 
 
 def main(args=None):
     rclpy.init(args=args)
-    node = ManagerTestNode()
+    node = SlicerNode()
     rclpy.spin(node)
     node.destroy_node()
     rclpy.shutdown()
