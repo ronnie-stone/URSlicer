@@ -119,45 +119,102 @@ Enter the following commands to install and build the packages. (This assumes th
 
 ```source install/setup.bash```
 
+---
+
+## Operating Instructions
+
+This project can be ran on two different setups. The first is on actual hardware for printing and hardware testing. The second is on a simulated robot arm for software testing. 
+
+### Hardware Setup
+
+1. Turn the UR5e arm on and plug into the ethernet cable.
+2. Start the program on the pendant titled _Lyle.urp_
+3. TODO: End effector setup steps
+
+### Software instructions
+
+1. Open 2 terminal tabs both with ROS2 sourced and enter the following in each. (If you are running a simulated robot open 3 terminals)
+
+``` cd ~/ros2_ws```
+
+``` source install/setup.bash```
+
+2. **Simulated robot only:** In the first terminal run the following command.
+
+```ros2 run ur_client_library start_ursim.sh```
+
+3. In a terminal run the following command.
+
+**Simulation:**  ```ros2 launch ur_printer_control start_robot.launch.py launch_rviz:=false robot_ip:=192.168.56.101```
+
+**Real Hardware:** ```ros2 launch ur_printer_control start_robot.launch.py launch_rviz:=false robot_ip:=169.254.107.107```
+
+4. In the final terminal run the following command.
+
+```ros2 launch printer_manager real_slice_test.launch.py ur_type:=ur5e```
+
+### RViz Setup
+
+Sometimes the RViz config file will not load correctly and may need to be setup again. Below is a gif of the steps that need to be followed for doing this.
+
+TODO: @jbliv
+
+### Printing Instructions
+
+1. Use the user interface in the bottom left corner to select the desired print file.
+
+2. Place the object at the desired print location.
+
+3. Click slice to begin printing.
+
+4. Monitor and approve each planned motion path shown in the simulation.
+
+---
+
+## Package Overview
+
+This project contains 9 primary ROS2 packages. Below is a brief summary of each one. For a detailed of each package go to the corresponding folder where each package has it's own README. TODO: @jbliv
+
+* **[printing_manager:](printing_manager)** Component, nodes, and launch files for managing printing process
+* **[slicer_node:](slicer_node)** ROS2 wrapper node for slicing scripts
+* **[slicer_panel:](slicer_panel)** Custom RViz2 panel for user interface
+* **[test_nodes:](test_nodes)** Test nodes for development
+* **[ur_printer_control:](ur_printer_control)** UR control package for custom end effector
+* **[ur_printer_description:](ur_printer_description)** Custom URDF package for end effector
+* **[ur_printer_moveit_config:](ur_printer_moveit_config)** MoveIt configuration
+* **[ur_slicer_interfaces:](ur_slicer_interfaces)** ROS2 interfaces used for communication
+* **[ur_slicer_io_control:](ur_slicer_io_control)** Control package for hardware interfaces
 
 
-## Packages for STL Movement Demo
+---
 
-cd to ros_ws 
-ensure git repo has been cloned into the correct branch
-ensure that workspace has been sourced
-```
-colcon build --packages-select ur_slicer_interfaces slicer_panel test_nodes
-```
+## Continued Development
 
-After building any packages the following line must be entered while in the ros_ws directory.
+**Preface:** It is highly recommend to familiarize yourself with ROS2 concepts and the basic tutorials for MoveIt2 before attempting to make extensive changes to this repo.
 
-```
-source install/setup.bash
-```
+For this section I am assuming the majority of the future changes that will be made are expansions of the current capabilities. This section will cover brief and basic recommendations for changes to each package within this project. For more extensive changes or questions feel free to reach out to [John Lyle](mailto:johnlyleiv@gmail.com?subject=UR%20Slicer%20Project%20Assistance)
 
-## How to run stl viz demo
+### User Interface
 
-Once the above packages are built the demo should be able to be run.
+Changes to the user interface need to be made in the _slicer_panel_ package.
 
-1. Run the following line to start the mock hardware simulation of the UR5e arm.
+### New Motion Capabilities
 
-```
-ros2 launch ur_robot_driver ur_control.launch.py ur_type:=ur5e robot_ip:=yyy.yyy.yyy.yyy use_fake_hardware:=true launch_rviz:=true
-```
-2. In the top left click "Panels -> Add New Panel" and select "Slicer"
+For creating new motion capabilities it is recommended to use the _printer_manager_ package as a reference for the implementation of the custom MoveIt packages used (_ur_printer_moveit_config_, _ur_printer_description_). If expanding the printing capabilities add onto the _printer_manager_ package, if adding new features such as tool changing create a new package with referencing _printing_manager_ package.
 
-3. Click the "Add" button on the middle left. Select "Interactive Marker"
+### New ROS2 Interfaces
 
-4. In the Interactive Marker display options set the "Interactive Marker Namespace" to /stl_markers.
+Modify the _ur_slicer_interfaces_ packages and use the ROS2 tutorials for custom interfaces.
 
-5. The panel is now usable.
+### Testing
 
-Optional bed placer:
+Add new nodes to the _test_nodes_ package.
 
-In another sourced terminal run:
+### Modified Robot Model
 
-```
-ros2 run test_nodes bed_corner_tester
-```
+Use the ROS2 tutorials to familiarize yourself to the concept of a URDF and change the STL for the end_effector to your desired file.
+
+### Slicing Changes
+
+Modify the slicing scripts in the _slicer_node_ package.
 
