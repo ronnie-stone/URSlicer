@@ -163,10 +163,75 @@ void Slicer::spin()
 
 // Bed Creation Functions
 
+void Slicer::testBedCreation()
+{
+  deleteBed();
+  geometry_msgs::msg::Point p1, p2, p3, p4;
+
+  RCLCPP_INFO(this->get_logger(), "Received bed corners");
+
+  p1.x = 0.25;
+  p1.y = -0.25;
+  p1.z = -0.415;
+
+  p2.x = 0.25;
+  p2.y = -0.75;
+  p2.z = -0.415;
+
+  p3.x = -0.25;
+  p3.y = -0.75;
+  p3.z = -0.415;
+
+  p4.x = -0.25;
+  p4.y = -0.25;
+  p4.z = -0.415;
+
+  float bed_height = 0.1;  // Arbitrary bed height for visualization
+
+  // Calculate center position for bed object
+  geometry_msgs::msg::Point center;
+  center.x = (p1.x + p2.x + p3.x + p4.x) / 4;
+  center.y = (p1.y + p2.y + p3.y + p4.y) / 4;
+  center.z = (p1.z + p2.z + p3.z + p4.z) / 4 - bed_height / 2;  // Ensures top surface at correct height
+
+  visualization_msgs::msg::InteractiveMarker int_marker;
+  int_marker.header.frame_id = "ur5e_base_link";  // UR5e base frame
+  int_marker.pose.position = center;
+  int_marker.scale = 1.0;
+  int_marker.name = "printer_bed";
+
+  visualization_msgs::msg::InteractiveMarkerControl control;
+  control.always_visible = true;
+  control.interaction_mode = visualization_msgs::msg::InteractiveMarkerControl::NONE;
+
+  // Create bed visualization
+  visualization_msgs::msg::Marker bed_visual;
+  bed_visual.type = visualization_msgs::msg::Marker::CUBE;
+  bed_visual.color.r = 0.8;
+  bed_visual.color.g = 0.8;
+  bed_visual.color.b = 0.8;
+  bed_visual.color.a = 1;
+
+  // Calculate bed dimensions
+  bed_visual.scale.x =
+      std::max({ std::abs(p1.x - p2.x), std::abs(p2.x - p3.x), std::abs(p3.x - p4.x), std::abs(p4.x - p1.x) });
+  bed_visual.scale.y =
+      std::max({ std::abs(p1.y - p2.y), std::abs(p2.y - p3.y), std::abs(p3.y - p4.y), std::abs(p4.y - p1.y) });
+  bed_visual.scale.z = bed_height;
+
+  control.markers.push_back(bed_visual);
+  int_marker.controls.push_back(control);
+
+  server_->insert(int_marker);
+  server_->applyChanges();
+}
+
 void Slicer::rectangleBedCreation(const ur_slicer_interfaces::msg::BedCorners::SharedPtr msg)
 {
   deleteBed();
   geometry_msgs::msg::Point p1, p2, p3, p4;
+
+  RCLCPP_INFO(this->get_logger(), "Received bed corners");
 
   p1 = msg->corners[0];
   p2 = msg->corners[1];
@@ -182,7 +247,7 @@ void Slicer::rectangleBedCreation(const ur_slicer_interfaces::msg::BedCorners::S
   center.z = (p1.z + p2.z + p3.z + p4.z) / 4 - bed_height / 2;  // Ensures top surface at correct height
 
   visualization_msgs::msg::InteractiveMarker int_marker;
-  int_marker.header.frame_id = "base_link";  // UR5e base frame
+  int_marker.header.frame_id = "ur5e_base_link";  // UR5e base frame
   int_marker.pose.position = center;
   int_marker.scale = 1.0;
   int_marker.name = "printer_bed";
@@ -225,7 +290,7 @@ void Slicer::createSTLMarker()
 {
   deleteSTLMarker();
   visualization_msgs::msg::InteractiveMarker int_marker;
-  int_marker.header.frame_id = "base_link";
+  int_marker.header.frame_id = "ur5e_base_link";
   int_marker.name = "stl_marker";
   int_marker.description = "";
   int_marker.scale = 1.0;
@@ -289,6 +354,7 @@ void Slicer::createSTLMarker()
 
   server_->insert(int_marker, std::bind(&Slicer::processSTLFeedback, this, std::placeholders::_1));
   server_->applyChanges();
+  testBedCreation();
 }
 
 void Slicer::deleteSTLMarker()

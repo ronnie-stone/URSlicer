@@ -19,10 +19,10 @@ class BedCornersPublisher(Node):
         """Publishes a sample bed corners message and then sets the shutdown flag."""
         msg = BedCorners()
         msg.corners = [
-            Point(x=0.25, y=0.25, z=0.0),
-            Point(x=0.25, y=-0.25, z=0.0),
-            Point(x=0.75, y=-0.25, z=0.0),
-            Point(x=0.75, y=0.25, z=0.0),
+            Point(x=0.25, y=0.25, z=-0.415),
+            Point(x=0.25, y=0.75, z=-0.415),
+            Point(x=-0.25, y=0.75, z=-0.415),
+            Point(x=-0.25, y=0.25, z=0 - 0.415),
         ]
         self.publisher_.publish(msg)
         self.get_logger().info("Published sample bed corners")

@@ -205,8 +205,8 @@ void PrinterManagerComponent::slicing_result(
   move_group.setPlannerId("LIN");
 
   // Go to home pose
-  bed_origin_.x = -0.1;
-  bed_origin_.y = -0.55;
+  bed_origin_.x = 0.0;
+  bed_origin_.y = -0.50;
   bed_origin_.z = -0.415;
 
   geometry_msgs::msg::Pose home_pose;

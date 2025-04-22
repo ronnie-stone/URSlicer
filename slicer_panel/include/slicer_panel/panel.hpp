@@ -82,6 +82,7 @@ protected Q_SLOTS:
       const rclcpp_action::ClientGoalHandle<ur_slicer_interfaces::action::PreparePrinter>::WrappedResult& result);
   void validateNumericInput();
   void publishSettings();
+  void testBedCreation();
 
 private:
   std::shared_ptr<interactive_markers::InteractiveMarkerServer> server_;  // Interactive marker server for STL objects
