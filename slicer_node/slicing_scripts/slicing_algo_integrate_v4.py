@@ -18,17 +18,23 @@ from scipy.spatial import ConvexHull
 class STL2Motion:
     """Fill in comment"""
 
-    def __init__(self, filepath_to_stl, quaternion):
+    def __init__(self, filepath_to_stl, layer_height, quaternion):
         self.filepath = filepath_to_stl
         self.input_quaternion = quaternion
 
         self.config = {
-            "layer_height": 5.0,  # Predetermined by extruder/nozzle settings
+            "layer_height": 5.0  # Predetermined by extruder/nozzle settings
             "resolution": 25,  # Resolution is for how many points to use along x-y plane when making a surface
             "infill_angle": 90,  # Rotation from x-axis for infill -- DEGREES
             "infill_density": 0.1,  # Density of infill (0-1) - Spacing of lines with respect to nozzle dia
             "nozzle_dia": 0.5,  # Predetermined by extruder/nozzle settings
         }
+
+        self.layer_height = layer_height
+
+    def set_layer_height(self, layer_height):
+        self.layer_height = layer_height
+
 
     def generate_robot_points(self):
         """Fill in comment"""
@@ -36,7 +42,7 @@ class STL2Motion:
 
         cube = mesh.Mesh.from_file(self.filepath)
 
-        layer_height = self.config["layer_height"]
+        #layer_height = self.config["layer_height"]
         res = self.config["resolution"]
         infill_angle = self.config["infill_angle"]
         infill_density = self.config["infill_density"]
