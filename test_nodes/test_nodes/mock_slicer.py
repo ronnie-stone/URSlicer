@@ -28,12 +28,12 @@ class ManagerTestNode(Node):
         )
 
         # Create a test square
-        point_1 = Point(x=0.0, y=0.05, z=0.0)
-        point_2 = Point(x=0.05, y=0.05, z=0.0)
-        point_3 = Point(x=0.05, y=-0.05, z=0.0)
-        point_4 = Point(x=-0.05, y=-0.05, z=0.0)
-        point_5 = Point(x=-0.05, y=0.10, z=0.0)
-        point_6 = Point(x=0.05, y=0.10, z=0.0)
+        point_1 = Point(x=0.0, y=-0.0, z=0.0)
+        point_2 = Point(x=0.25, y=-0.0, z=0.0)
+        point_3 = Point(x=0.25, y=-0.05, z=0.0)
+        point_4 = Point(x=-0.25, y=-0.05, z=0.0)
+        point_5 = Point(x=-0.25, y=-0.0, z=0.0)
+        point_6 = Point(x=0.0, y=-0.0, z=0.0)
 
         test_path = Path()
         test_path.path = [point_1, point_2, point_3, point_4, point_5, point_6]
