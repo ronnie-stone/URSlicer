@@ -41,22 +41,6 @@ class SlicerNode(Node):
             path_msg.path = [Point(x=pt[0], y=pt[1], z=pt[2]) for pt in layer]
             result.path_list.append(path_msg)
 
-        # Create a test square
-        # point_1 = Point(x=0.0, y=0.05, z=0.0)
-        # point_2 = Point(x=0.05, y=0.05, z=0.0)
-        # point_3 = Point(x=0.05, y=0.10, z=0.0)
-        # point_4 = Point(x=0.10, y=0.10, z=0.0)
-        # point_5 = Point(x=0.10, y=0.05, z=0.0)
-        # point_6 = Point(x=0.05, y=0.0, z=0.0)
-
-        # test_path = Path()
-        # test_path.path = [point_1, point_2, point_3, point_4, point_5, point_6]
-
-        # result = Slicer.Result()
-
-        # result.path_list = [test_path, test_path, test_path, test_path]
-        # ======================================================================
-
         goal_handle.succeed()
         return result
 
