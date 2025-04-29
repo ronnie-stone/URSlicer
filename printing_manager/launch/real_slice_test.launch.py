@@ -56,8 +56,8 @@ def launch_setup(context, *args, **kwargs):
 
     # Mock slicer node
     slicer = Node(
-        package="test_nodes",
-        executable="mock_slicer",
+        package="slicer_node",
+        executable="slicer_node",
         name="slicer_node",
     )
 
