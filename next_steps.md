@@ -35,3 +35,6 @@ We have performed testing with printing a line and going through the motions of 
 * Slicing Verification: slicer_node.py, line 39:42
 
 * Object Placement: printer_manager_component.cpp, line 269:276
+
+* Launch Files: Refer to each package for relevant launch files. The whole system launch files are contained within the printing_manager package.
+

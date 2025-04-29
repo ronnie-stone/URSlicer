@@ -80,7 +80,7 @@ In order to control the UR5e arm using another computer a few pieces of network 
 
 2. Ensure the network settings on the UR5e control tablet match the following image.
 
-TODO:
+![Network Tablet Settings](images/tablet_network.png)
 
 3. Plug the ethernet cable from the UR5e box into your computer.
 
@@ -157,7 +157,7 @@ This project can be ran on two different setups. The first is on actual hardware
 
 Sometimes the RViz config file will not load correctly and may need to be setup again. Below is a gif of the steps that need to be followed for doing this.
 
-TODO: @jbliv
+[RVIZ Settings](images/RVIZ_Settings.webm)
 
 ### Printing Instructions
 
@@ -173,7 +173,7 @@ TODO: @jbliv
 
 ## Package Overview
 
-This project contains 9 primary ROS2 packages. Below is a brief summary of each one. For a detailed of each package go to the corresponding folder where each package has it's own README. TODO: @jbliv
+This project contains 9 primary ROS2 packages. Below is a brief summary of each one. For a detailed of each package go to the corresponding folder where each package has it's own README.
 
 * **[printing_manager:](printing_manager)** Component, nodes, and launch files for managing printing process
 * **[slicer_node:](slicer_node)** ROS2 wrapper node for slicing scripts
