@@ -23,7 +23,7 @@ The `slicer_node` package serves as the ROS2 wrapper for the slicing algorithms.
 
 2. Run the slicing node:
    ```
-   ros2 run slicer_node slicing_algo_integrate_v4.py
+   ros2 run slicer_node slicer_node
    ```
 
 3. Provide the STL file path and slicing parameters as inputs.
